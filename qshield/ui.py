@@ -1014,36 +1014,88 @@ def inject_styles() -> None:
                 .qs-marquee-item { min-width: 190px; }
             }
 
-            /* Clear, quiet surfaces keep assessment data easy to scan. */
+            /* Editorial security-console finish. These are surface-only overrides:
+               routes, component structure, and the scroll shell remain untouched. */
+            :root {
+                --qs-ink: #050505;
+                --qs-canvas: #f2eef0;
+                --qs-red: #ff1025;
+                --qs-red-dark: #ce0918;
+                --qs-grid: rgba(5, 5, 5, 0.075);
+            }
+
             .stApp {
-                background: #f5f6f8;
-                background-image: none;
+                background: var(--qs-canvas);
+                background-image:
+                    radial-gradient(circle at 9% 12%, rgba(255,16,37,0.09), transparent 24%),
+                    linear-gradient(var(--qs-grid) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--qs-grid) 1px, transparent 1px);
+                background-size: auto, 46px 46px, 46px 46px;
+                background-attachment: fixed;
             }
 
-            .qs-cyber-background { display: none; }
-
-            .main .block-container {
-                max-width: 1440px;
-                padding-top: 2rem;
-                padding-bottom: 3rem;
+            /* Fixed backdrop is decorative only: it cannot intercept pointer or scroll input. */
+            .qs-cyber-background { display: block; opacity: 0.23; }
+            .qs-cyber-background::before {
+                background:
+                    radial-gradient(ellipse at 78% 48%, transparent 0 14%, rgba(5,5,5,0.055) 14.2% 14.5%, transparent 14.7% 21%, rgba(255,16,37,0.12) 21.2% 21.45%, transparent 21.7%),
+                    radial-gradient(circle, rgba(5,5,5,0.35) 0 1px, transparent 1.5px),
+                    linear-gradient(90deg, transparent 49.9%, rgba(5,5,5,0.12) 50%, transparent 50.1%);
+                background-size: auto, 8px 8px, 100% 100%;
+                mask-image: radial-gradient(ellipse at 78% 48%, #000 0, transparent 49%);
+                animation: qs-field-drift 28s ease-in-out infinite alternate;
             }
+            .qs-cyber-background::after { opacity: 0.28; animation: qs-scan 18s linear infinite; }
+            .qs-cyber-orbit { border-color: rgba(5,5,5,0.13); animation: qs-orbit 54s linear infinite; }
+            .qs-cyber-node { animation: qs-node-pulse 3.8s ease-in-out infinite; }
+            .qs-cyber-telemetry { animation: qs-telemetry 12s ease-in-out infinite alternate; }
 
-            h1, h2, h3, h4 { text-transform: none; letter-spacing: normal; }
+            h1, h2, h3, h4 {
+                color: var(--qs-ink);
+                font-weight: 900;
+                letter-spacing: -0.035em;
+                text-transform: uppercase;
+            }
+            .main .block-container { max-width: 1480px; padding-top: 2rem; padding-bottom: 3rem; }
 
             .qs-page-header {
                 margin-bottom: 1.75rem;
-                padding: 1.75rem 2rem;
-                border: 1px solid #20242b;
-                border-radius: 14px;
-                background: #20242b;
-                box-shadow: none;
-                animation: none;
+                padding: clamp(1.4rem, 3vw, 2.2rem);
+                border: 1px solid rgba(255,255,255,0.2);
+                border-radius: 5px;
+                background:
+                    linear-gradient(110deg, rgba(5,5,5,0.98), rgba(18,11,13,0.94)),
+                    #050505;
+                box-shadow: 0 18px 42px rgba(5,5,5,0.16), 6px 6px 0 rgba(255,16,37,0.92);
+                animation: qs-enter 460ms cubic-bezier(.2,.7,.2,1) both;
             }
-
-            .qs-page-header::after { display: none; }
-            .qs-eyebrow { letter-spacing: 0.1em; }
-            .qs-page-header h1 { font-size: clamp(1.6rem, 2.5vw, 2.1rem); letter-spacing: -0.02em; text-transform: none; }
-            .qs-page-header p { color: #d4d8df; }
+            .qs-page-header::after {
+                display: block;
+                border-radius: inherit;
+                opacity: 0.2;
+                background-size: 36px 36px;
+                animation: qs-drift 24s linear infinite;
+            }
+            .qs-page-header::before {
+                content: "";
+                position: absolute;
+                z-index: 1;
+                inset: auto;
+                top: 18px;
+                right: 18px;
+                width: 16px;
+                height: 16px;
+                border-top: 1px solid var(--qs-red);
+                border-right: 1px solid var(--qs-red);
+                pointer-events: none;
+            }
+            .qs-eyebrow { letter-spacing: 0.18em; }
+            .qs-page-header h1 {
+                font-size: clamp(1.8rem, 4vw, 3.1rem);
+                letter-spacing: -0.045em;
+                text-wrap: balance;
+            }
+            .qs-page-header p { color: rgba(255,255,255,0.78); }
 
             .qs-card,
             [data-testid="stMetric"],
@@ -1052,83 +1104,109 @@ def inject_styles() -> None:
             div[data-testid="stTabs"],
             .phase-card,
             .priority-item {
-                border: 1px solid #e1e4e8;
-                border-radius: 12px;
-                background: #ffffff;
-                box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
-                backdrop-filter: none;
-                -webkit-backdrop-filter: none;
-                animation: none;
+                border: 1px solid rgba(255,255,255,0.78);
+                border-radius: 5px;
+                background: linear-gradient(135deg, rgba(255,255,255,0.82), rgba(255,255,255,0.58) 70%, rgba(255,16,37,0.055));
+                box-shadow: 0 14px 34px rgba(23,15,20,0.09), inset 0 1px 0 rgba(255,255,255,0.92);
+                backdrop-filter: blur(18px) saturate(1.12);
+                -webkit-backdrop-filter: blur(18px) saturate(1.12);
             }
-
-            .qs-card { padding: 1.1rem; }
-            .qs-card:hover,
-            [data-testid="stMetric"]:hover { transform: none; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06); }
-            [data-testid="stMetric"] { border-top: 1px solid #e1e4e8; }
-            [data-testid="stMetricLabel"] { color: #596273 !important; }
-            [data-testid="stMetricValue"] { font-size: 1.7rem; }
-
-            .stButton button,
-            .stDownloadButton button {
-                min-height: 2.6rem;
-                border: 1px solid #c9ced6;
-                border-radius: 8px;
-                background: #ffffff;
-                color: #20242b;
-                font-weight: 650;
-                letter-spacing: normal;
-                text-transform: none;
-                box-shadow: none;
-                transition: background 150ms ease, border-color 150ms ease;
+            .qs-card { padding: 1.25rem; animation: qs-rise 420ms ease-out both; }
+            [data-testid="stMetric"] {
+                border-top: 2px solid rgba(255,16,37,0.82);
+                animation: qs-rise 420ms ease-out both;
             }
-
-            .stButton button:hover,
-            .stDownloadButton button:hover {
-                border-color: #aeb5c0;
-                background: #f0f2f5;
-                color: #20242b;
-                box-shadow: none;
-                transform: none;
+            [data-testid="column"]:nth-child(2) [data-testid="stMetric"] { animation-delay: 45ms; }
+            [data-testid="column"]:nth-child(3) [data-testid="stMetric"] { animation-delay: 90ms; }
+            [data-testid="column"]:nth-child(4) [data-testid="stMetric"] { animation-delay: 135ms; }
+            [data-testid="column"]:nth-child(5) [data-testid="stMetric"] { animation-delay: 180ms; }
+            [data-testid="stMetricValue"], .qs-card-value { font-variant-numeric: tabular-nums; }
+            [data-testid="stMetricLabel"] { color: #626067 !important; }
+            .qs-card:hover, [data-testid="stMetric"]:hover {
+                border-color: rgba(255,16,37,0.58);
+                box-shadow: 0 19px 42px rgba(23,15,20,0.13), 0 0 0 1px rgba(255,16,37,0.08);
+                transform: translateY(-3px);
             }
+            div[data-testid="stExpander"], div[data-testid="stDataFrame"] { overflow: visible; }
+            .phase-card { padding: 18px; margin: 10px 0; }
+            .priority-item { padding: 14px 16px; margin: 10px 0; border-left: 4px solid var(--qs-red); }
 
-            .stButton button[kind="primary"],
-            .stDownloadButton button[kind="primary"] {
-                border-color: #c51f32;
-                background: #c51f32;
-                color: #ffffff;
+            .qs-section-title { font-size: 1.12rem; letter-spacing: 0.08em; }
+            .qs-flow-map { background: rgba(255,255,255,0.42); border-color: rgba(5,5,5,0.55); }
+            .qs-flow-step { background: rgba(255,255,255,0.28); transition: background 180ms ease, color 180ms ease, transform 180ms ease; }
+            .qs-flow-step:hover { background: rgba(5,5,5,0.96); transform: translateY(-2px); }
+
+            .stButton button, .stDownloadButton button {
+                min-height: 2.65rem;
+                border: 1px solid rgba(5,5,5,0.3);
+                border-radius: 3px;
+                background: rgba(255,255,255,0.72);
+                color: var(--qs-ink);
+                font-weight: 800;
+                letter-spacing: 0.035em;
+                text-transform: uppercase;
+                transition: color 150ms ease, background 150ms ease, border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
             }
-
-            .stButton button[kind="primary"]:hover,
-            .stDownloadButton button[kind="primary"]:hover {
-                border-color: #a71929;
-                background: #a71929;
-                color: #ffffff;
+            .stButton button:hover, .stDownloadButton button:hover {
+                border-color: var(--qs-red);
+                background: var(--qs-ink);
+                color: #fff;
+                box-shadow: 4px 4px 0 var(--qs-red);
+                transform: translate(-1px, -1px);
             }
-
-            button:focus-visible,
-            a:focus-visible,
-            input:focus-visible,
-            textarea:focus-visible,
-            [role="combobox"]:focus-visible {
-                outline: 3px solid rgba(197, 31, 50, 0.42);
-                outline-offset: 2px;
+            .stButton button[kind="primary"], .stDownloadButton button[kind="primary"] {
+                border-color: var(--qs-red);
+                background: var(--qs-red);
+                color: #fff;
             }
-
-            [data-testid="stSidebar"] { border-right: 1px solid #30343b; }
-            [data-testid="stSidebar"] a { transition: background 120ms ease, border-color 120ms ease; }
-            [data-testid="stSidebar"] a:hover { transform: none; }
+            .stButton button[kind="primary"]:hover, .stDownloadButton button[kind="primary"]:hover {
+                background: #d90d20;
+                color: #fff;
+            }
+            [data-testid="stSidebar"] { border-right: 2px solid var(--qs-red); }
             [data-testid="stSidebar"] a[aria-current="page"] {
                 border-left-color: var(--qs-red);
-                background: rgba(255, 255, 255, 0.1);
+                background: rgba(255,16,37,0.18);
+                box-shadow: inset 0 0 18px rgba(255,16,37,0.08);
             }
-
-            .qs-flow-step,
-            .qs-flow-step:hover { transition: none; transform: none; }
+            [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:has(span[style*="rgb(255, 43, 43)"]) {
+                border-left-color: var(--qs-red) !important;
+                background: linear-gradient(115deg, rgba(255,16,37,0.17), rgba(255,255,255,0.075) 54%, rgba(255,16,37,0.08)) !important;
+                box-shadow: 0 10px 26px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.16), inset 0 0 18px rgba(255,16,37,0.08);
+                backdrop-filter: blur(16px) saturate(1.16);
+                -webkit-backdrop-filter: blur(16px) saturate(1.16);
+            }
+            [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:has(span[style*="rgb(255, 43, 43)"]) p,
+            [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:has(span[style*="rgb(255, 43, 43)"]) p span {
+                color: var(--qs-red) !important;
+                font-weight: 900 !important;
+                text-shadow: 0 0 12px rgba(255,16,37,0.22);
+            }
+            [data-baseweb="input"] > div, [data-baseweb="select"] > div, textarea,
+            [data-testid="stFileUploaderDropzone"] {
+                border-radius: 3px !important;
+                background: rgba(255,255,255,0.72) !important;
+            }
+            button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible,
+            [role="combobox"]:focus-visible {
+                outline: 3px solid rgba(255,16,37,0.45) !important;
+                outline-offset: 3px !important;
+            }
+            .stProgress > div > div > div { background: linear-gradient(90deg, #c90718, var(--qs-red)); }
 
             @media (max-width: 760px) {
-                .main .block-container { padding-top: 1rem; padding-inline: 1rem; }
-                .qs-page-header { padding: 1.25rem; }
+                .main .block-container { padding: 1.25rem 1rem 2.5rem; }
+                .qs-page-header { padding: 1.25rem; box-shadow: 5px 5px 0 rgba(255,16,37,0.92); }
+                .qs-page-header h1 { font-size: clamp(1.55rem, 7vw, 2.3rem); }
                 [data-testid="stMetric"] { padding: 0.85rem; }
+                .qs-cyber-telemetry, .qs-cyber-orbit { opacity: 0.35; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .qs-page-header, .qs-page-header::after, .qs-cyber-background::before,
+                .qs-cyber-background::after, .qs-cyber-orbit, .qs-cyber-node,
+                .qs-cyber-telemetry, .qs-card { animation: none !important; }
+                .qs-card:hover, [data-testid="stMetric"]:hover, .qs-flow-step:hover,
+                .stButton button:hover, .stDownloadButton button:hover { transform: none !important; }
             }
         </style>
         """,
@@ -1163,8 +1241,9 @@ def render_sidebar(active_page: str = "Command Center") -> None:
         st.markdown('<div class="qs-nav-label">Navigate</div>', unsafe_allow_html=True)
         for page_path, label, icon, _description in NAV_ITEMS:
             prefix = "▸" if label == active_page else "·"
+            nav_label = f":red[{prefix}  {icon}  {label}]" if label == active_page else f"{prefix}  {icon}  {label}"
             try:
-                st.page_link(page_path, label=f"{prefix}  {icon}  {label}")
+                st.page_link(page_path, label=nav_label)
             except StreamlitAPIException:
                 # AppTest can execute a page as a standalone script, where
                 # Streamlit resolves page links relative to that page folder.

@@ -47,6 +47,13 @@ def logout_user(state: MutableMapping[str, object]) -> None:
     state.pop(LOGIN_PASSWORD_KEY, None)
 
 
+def reset_uploaded_workspace_data() -> int:
+    """Clear the shared local inventory and its derived assessment records."""
+    from qshield.database import Database
+
+    return Database().delete_all_assets()
+
+
 def render_auth_sidebar() -> None:
     """Render the authenticated user's identity and logout action."""
     import streamlit as st
@@ -56,6 +63,7 @@ def render_auth_sidebar() -> None:
         return
     st.caption(f"Signed in as **{username}** · demo account")
     if st.button("Log out", use_container_width=True):
+        reset_uploaded_workspace_data()
         logout_user(st.session_state)
         st.rerun()
 
@@ -180,19 +188,52 @@ def require_login() -> None:
             }
             [data-testid="stForm"] label,
             [data-testid="stForm"] [data-testid="stWidgetLabel"] p { color: rgba(255,255,255,0.82); }
+            [data-testid="stForm"] [data-testid="stWidgetLabel"] {
+                width: 100%;
+                justify-content: flex-start;
+                text-align: left;
+                direction: ltr;
+            }
+            [data-testid="stForm"] label,
+            [data-testid="stForm"] [data-testid="stWidgetLabel"] p {
+                text-align: left;
+                direction: ltr;
+            }
             [data-testid="stForm"] [data-baseweb="input"] > div {
                 min-height: 48px;
                 border: 1px solid rgba(255,255,255,0.22);
                 border-radius: 10px;
-                background: rgba(7,7,9,0.62);
+                background: rgba(7,7,9,0.62) !important;
                 box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+            }
+            [data-testid="stForm"] [data-baseweb="input"] > div > div {
+                background: transparent !important;
+            }
+            [data-testid="stForm"] [data-baseweb="input"] {
+                background: transparent !important;
+            }
+            [data-testid="stForm"] [data-baseweb="input"] button {
+                color: rgba(255,255,255,0.82) !important;
+                background: transparent !important;
             }
             [data-testid="stForm"] [data-baseweb="input"] > div:focus-within {
                 border-color: rgba(255,35,43,0.9);
                 box-shadow: 0 0 0 3px rgba(255,16,24,0.16);
             }
-            [data-testid="stForm"] input { color: #fff; }
-            [data-testid="stForm"] input::placeholder { color: rgba(255,255,255,0.4); }
+            [data-testid="stForm"] input {
+                box-sizing: border-box;
+                width: 100%;
+                padding-inline: 12px !important;
+                color: #fff !important;
+                text-align: left !important;
+                direction: ltr !important;
+                unicode-bidi: plaintext;
+            }
+            [data-testid="stForm"] input::placeholder {
+                color: rgba(255,255,255,0.56) !important;
+                text-align: left;
+                direction: ltr;
+            }
             [data-testid="stForm"] button[kind="primary"] {
                 min-height: 48px;
                 margin-top: 0.5rem;
@@ -255,6 +296,7 @@ def require_login() -> None:
 
     if submitted:
         if login_user(username, password, st.session_state):
+            reset_uploaded_workspace_data()
             st.rerun()
         st.error("Invalid username or password.")
 
