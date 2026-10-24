@@ -8,7 +8,7 @@ All queries use parameterized statements to prevent SQL injection.
 import sqlite3
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 
 from qshield.models import CryptographicAsset, ASSET_FIELDS, asset_input_fingerprint
@@ -157,7 +157,7 @@ class Database:
     # ── Asset CRUD ───────────────────────────────────────────────────
 
     def upsert_asset(self, asset: CryptographicAsset) -> None:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         conn = self._get_conn()
         try:
             previous = conn.execute(
@@ -243,7 +243,7 @@ class Database:
                 conn.execute("DELETE FROM assets")
             count = 0
             for asset in assets:
-                now = datetime.utcnow().isoformat()
+                now = datetime.now(timezone.utc).isoformat()
                 previous = conn.execute(
                     "SELECT * FROM assets WHERE asset_id = ?", (asset.asset_id,)
                 ).fetchone()
@@ -359,7 +359,7 @@ class Database:
     # ── Structured cryptographic usages ───────────────────────────────
 
     def upsert_crypto_usage(self, asset_id: str, usage: dict) -> int:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         conn = self._get_conn()
         try:
             cursor = conn.execute("""
@@ -423,7 +423,7 @@ class Database:
         try:
             conn.execute(
                 "INSERT INTO review_decisions (asset_id, decision, reviewer, evidence, created_at) VALUES (?, ?, ?, ?, ?)",
-                (asset_id, decision, reviewer, evidence, datetime.utcnow().isoformat()),
+                (asset_id, decision, reviewer, evidence, datetime.now(timezone.utc).isoformat()),
             )
             conn.commit()
         finally:
@@ -458,7 +458,7 @@ class Database:
 
     def save_assessment(self, asset_id: str, finding: dict,
                         score: dict) -> None:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         conn = self._get_conn()
         try:
             asset_row = conn.execute(
@@ -546,7 +546,7 @@ class Database:
 
     def log_activity(self, action: str, details: str = "",
                      asset_count: int = 0) -> None:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         conn = self._get_conn()
         try:
             conn.execute(
