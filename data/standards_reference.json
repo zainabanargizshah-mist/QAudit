@@ -1,0 +1,83 @@
+{
+  "standards": [
+    {
+      "id": "FIPS-203",
+      "title": "ML-KEM: Module-Lattice-Based Key-Encapsulation Mechanism Standard",
+      "organization": "NIST",
+      "url": "https://csrc.nist.gov/pubs/fips/203/final",
+      "published": "2024-08-13",
+      "algorithm": "ML-KEM",
+      "purpose": "Key encapsulation and shared-secret establishment",
+      "status": "Final Standard",
+      "last_verified": "2024-12-01",
+      "notes": "Replaces classical public-key key establishment (RSA, ECDH, DH) for post-quantum security."
+    },
+    {
+      "id": "FIPS-204",
+      "title": "ML-DSA: Module-Lattice-Based Digital Signature Standard",
+      "organization": "NIST",
+      "url": "https://csrc.nist.gov/pubs/fips/204/final",
+      "published": "2024-08-13",
+      "algorithm": "ML-DSA",
+      "purpose": "Digital signatures",
+      "status": "Final Standard",
+      "last_verified": "2024-12-01",
+      "notes": "Replaces RSA, ECDSA, and EdDSA for post-quantum digital signatures."
+    },
+    {
+      "id": "FIPS-205",
+      "title": "SLH-DSA: Stateless Hash-Based Digital Signature Standard",
+      "organization": "NIST",
+      "url": "https://csrc.nist.gov/pubs/fips/205/final",
+      "published": "2024-08-13",
+      "algorithm": "SLH-DSA",
+      "purpose": "Digital signatures (hash-based, conservative choice)",
+      "status": "Final Standard",
+      "last_verified": "2024-12-01",
+      "notes": "Conservative alternative to ML-DSA using hash-based approach."
+    },
+    {
+      "id": "NIST-IR-8547",
+      "title": "Transition to Post-Quantum Cryptography Standards",
+      "organization": "NIST",
+      "url": "https://csrc.nist.gov/pubs/ir/8547/final",
+      "published": "2024-11-12",
+      "purpose": "Migration guidance",
+      "status": "Final",
+      "last_verified": "2024-12-01",
+      "notes": "Provides timeline and guidance for deprecating classical algorithms and transitioning to PQC."
+    },
+    {
+      "id": "CISA-PQC",
+      "title": "Post-Quantum Cryptography Initiative",
+      "organization": "CISA",
+      "url": "https://www.cisa.gov/quantum",
+      "purpose": "Federal guidance",
+      "status": "Active",
+      "last_verified": "2024-12-01",
+      "notes": "CISA guidance on preparing federal systems for PQC transition."
+    },
+    {
+      "id": "OWASP-A02",
+      "title": "OWASP Top 10 - A02:2021 Cryptographic Failures",
+      "organization": "OWASP",
+      "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/",
+      "purpose": "Application security guidance",
+      "status": "Active",
+      "last_verified": "2024-12-01",
+      "notes": "Guidance on avoiding cryptographic failures in web applications."
+    }
+  ],
+  "quantum_threat_summary": {
+    "shors_algorithm": {
+      "description": "Shor's algorithm can efficiently solve the integer factorization problem and the discrete logarithm problem on a sufficiently capable quantum computer.",
+      "affects": ["RSA", "ECDH", "ECDHE", "ECDSA", "EdDSA", "DH", "DSA"],
+      "does_not_affect": ["AES", "ChaCha20", "SHA-2", "SHA-3"]
+    },
+    "grovers_algorithm": {
+      "description": "Grover's algorithm provides a quadratic speedup for searching unstructured databases, effectively halving symmetric key lengths.",
+      "impact_on_symmetric": "Reduces AES-256 to 128-bit security, AES-128 to 64-bit. Does not break AES-256.",
+      "impact_on_hashing": "Affects preimage resistance by square root factor. Collision resistance of SHA-256 remains at 128-bit."
+    }
+  }
+}

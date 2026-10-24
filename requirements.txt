@@ -1,0 +1,24 @@
+# Q-Shield production dependencies
+# Python 3.12 required (see runtime.txt)
+# Tested: all packages below have prebuilt wheels for Python 3.12 on Linux/manylinux
+
+# ── Core UI ───────────────────────────────────────────────────────────
+streamlit==1.38.0
+
+# ── Data & Visualisation ─────────────────────────────────────────────
+pandas==2.2.2
+plotly==5.24.0
+
+# ── PDF generation (fpdf2 requires Pillow; pin wheel-friendly version) ─
+fpdf2==2.8.1
+Pillow==10.4.0
+
+# ── AI providers (optional — app works without these, falls back to rules) ─
+openai==1.45.0
+google-genai==1.47.0
+
+# ── Protobuf (shared transitive dep for streamlit + google-genai) ─────
+protobuf>=4.25.0,<6
+
+# ── Env & config ─────────────────────────────────────────────────────
+python-dotenv==1.0.1
