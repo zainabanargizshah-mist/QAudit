@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="260" viewBox="0 0 1440 260" role="img" aria-labelledby="title desc">
+  <title id="title">Q-Shield — Map cryptography. Prioritize quantum risk. Plan your PQC transition.</title>
+  <desc id="desc">Large Q-Shield wordmark on a black technical grid with a signal-red accent and the product headline.</desc>
+  <defs>
+    <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse">
+      <path d="M34 0H0V34" fill="none" stroke="#fff" stroke-opacity=".055" stroke-width="1"/>
+    </pattern>
+    <linearGradient id="glow" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#ff1025" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#ff1025" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1440" height="260" rx="20" fill="#050505"/>
+  <rect width="1440" height="260" rx="20" fill="url(#grid)"/>
+  <rect width="1440" height="260" rx="20" fill="url(#glow)"/>
+  <path d="M0 256H1440" stroke="#ff1025" stroke-width="8"/>
+  <path d="M67 43v164" stroke="#ff1025" stroke-width="5"/>
+  <text x="104" y="128" fill="#fff" font-family="Arial, 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif" font-size="76" font-weight="900" letter-spacing="2">🛡️ Q-SHIELD</text>
+  <text x="108" y="178" fill="#ff626d" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="4">PQC SECURITY OPERATIONS</text>
+  <path d="M108 198H300" stroke="#ff1025" stroke-width="2"/>
+  <text x="108" y="232" fill="#e9e6e8" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">Map cryptography. Prioritize quantum risk. Plan your PQC transition.</text>
+  <text x="1373" y="64" text-anchor="end" fill="#ff626d" font-family="monospace" font-size="11" letter-spacing="2">N1  /  INVENTORY   N2  /  ASSESS   N3  /  PLAN</text>
+</svg>

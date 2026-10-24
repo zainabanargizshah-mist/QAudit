@@ -1,218 +1,185 @@
-# 🛡️ Q-Shield — Quantum-Readiness Intelligence for Enterprise Security
+# ![🛡️ Q-Shield — Map cryptography. Prioritize quantum risk. Plan your PQC transition.](docs/images/qshield-readme-title.svg)
 
-**AI-Assisted Quantum-Readiness Assessment and PQC Migration Planner**
+Q-Shield turns a declared cryptographic inventory into a clear, evidence-led view of quantum exposure and migration priorities. It brings asset inventory, transparent detection and risk analysis, PQC migration planning, standards references, and shareable reports into one local-first workspace.
 
-Q-Shield helps organizations prepare for post-quantum cryptography (PQC) by maintaining a declared cryptographic inventory, identifying algorithms that require quantum-readiness review, calculating an explainable migration-priority heuristic, and generating advisory planning guidance aligned with NIST PQC references.
+> **Prototype notice:** Q-Shield analyzes information people declare or upload; it does not discover cryptography in live systems, certify compliance, or perform migrations. Treat findings as planning estimates, review them with qualified owners, and use synthetic or sanitized data in demos.
 
-> ⚠️ **This is a prototype assessment and planning tool, not an automated production migration system.** All findings are decision-support estimates requiring human review. Do not upload confidential production inventories to a public demo.
+## 🌟 At a glance
 
----
+- **Inventory:** Upload CSV or JSON, review and filter assets, add or edit records, capture structured cryptographic usages and evidence, and export inventory data.
+- **Detection and risk:** Run deterministic algorithm classification and explainable 0–100 migration-priority scoring; inspect findings, score factors, and review flags.
+- **Migration planning:** Browse risk-ranked recommendations, record migration status, view evidence-based progress, and optionally request an AI-assisted plan.
+- **Reports:** Generate a paginated PDF and download inventory or assessment CSV files from current data.
+- **Standards and method:** Review the project’s standards reference, detection rules, scoring approach, and known limitations.
+- **Command Center:** See assessment summaries, distributions, priority assets, and recent workspace activity.
 
-## Features
+## 🖥️ Interface preview
 
-| Feature | Description |
-|---------|-------------|
-| **Declared Inventory** | Import, browse, filter, add, edit, and export declared cryptographic asset records (CSV/JSON) with provenance |
-| **Detection Engine** | Deterministic, versioned rule-based classification of declared algorithm labels |
-| **Migration-Priority Scoring** | Transparent 0–100 planning heuristic with configurable weights and full breakdowns |
-| **Migration Planner** | Phased advisory guidance aligned with NIST FIPS 203, 204, 205 |
-| **AI Assistant** | Optional provider-labeled LLM advisory with a clearly marked rule-based fallback |
-| **Professional Reports** | PDF and CSV exports generated from live assessment data |
-| **Methodology Reference** | Full documentation of scoring, detection rules, standards, and limitations |
+The screenshot below shows the Command Center with the synthetic demo workspace loaded (15 assets).
 
-## Technology Stack
+![Q-Shield Command Center with demo assessment data](docs/images/qshield-command-center.png)
 
-- **Language:** Python 3.12
-- **Frontend:** Streamlit
-- **Data Processing:** Pandas
-- **Storage:** SQLite (with abstraction layer)
-- **Visualizations:** Plotly
-- **PDF Generation:** fpdf2
-- **AI Integration:** OpenAI API (optional)
-- **Testing:** pytest
-- **CI:** GitHub Actions
+## 🔄 How the workflow fits together
 
-## Quick Start
-
-### Prerequisites
-
-- Python 3.11 or compatible version
-- pip
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/q-shield.git
-cd q-shield
-
-# Create virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # macOS/Linux
-# venv\Scripts\activate   # Windows
-
-# Install dependencies
-pip install -r requirements.txt
+```text
+CSV / JSON / demo data
+        ↓
+Inventory + evidence → Algorithm detection → Explainable risk scores
+                                                   ↓
+                              Migration recommendations and progress
+                                                   ↓
+                                   PDF / CSV reports and references
 ```
 
-### Run Locally
+The same local database backs the dashboard, inventory, risk queue, migration planner, and reports, so their views use the shared assessment records. AI advice is an optional layer: it does not replace deterministic findings or change risk scores.
+
+## 🚀 Run locally
+
+### 🧰 Requirements
+
+- Python **3.12** (the pinned Streamlit deployment runtime is recorded in [`runtime.txt`](runtime.txt))
+- `pip`
+
+### ▶️ Install and start
 
 ```bash
+git clone https://github.com/zainabanargizshah-mist/QAudit.git
+cd QAudit
+
+python3.12 -m venv .venv
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\activate         # Windows PowerShell
+
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The app opens at `http://localhost:8501`. Click **＋ Load demo data** to populate a local prototype workspace with synthetic financial-system records. These are declared demo records, not discovered assets.
+Open the local URL printed by Streamlit, usually <http://localhost:8501>.
 
-### Demo Login
+### 🔐 Demo sign-in and sample data
 
-The local prototype includes a built-in login for judge presentations:
+The local presentation login defaults to:
 
 ```text
 Username: judge
 Password: qshield-demo
 ```
 
-This is a presentation-only session gate, not production authentication. It has no user database, roles, tenant isolation, password reset, or enterprise identity integration. The defaults can be overridden locally with `QSHIELD_DEMO_USERNAME` and `QSHIELD_DEMO_PASSWORD`. For a shared or production deployment, replace it with an identity provider and disable the built-in demo credentials.
+After sign-in, choose **Load Demo Data** in the sidebar or Inventory module to populate the workspace with synthetic records. You can also start with the project’s sample inventories:
 
-### Run Tests
+- [Synthetic sample inventory (15 rows)](data/qshield_synthetic_inventory.csv)
+- [Synthetic sample inventory (25 rows)](data/qshield_synthetic_inventory_25.csv)
 
-```bash
-python -m pytest tests/ -v
-```
+The login is a demo session gate, not production authentication: it does not provide user accounts, roles, tenant isolation, password recovery, or enterprise identity integration. The default credentials are public. Override them for a local presentation with `QSHIELD_DEMO_USERNAME` and `QSHIELD_DEMO_PASSWORD`.
 
-## Project Structure
+**Workspace reset behavior:** Successful login and logout clear the shared local asset inventory and its derived assessment records. The activity log and original CSV files on disk are retained. Export or copy anything you need before logging out; this behavior is intended for the single-user demo workspace.
 
-```
-q-shield/
-├── app.py                          # Main entry point — Overview dashboard
-├── requirements.txt                # Pinned dependencies
-├── README.md
-├── .gitignore
-├── .env.example                    # Environment variable template
-├── pages/
-│   ├── 1_Asset_Inventory.py        # Asset management page
-│   ├── 2_Risk_Assessment.py        # Detection & risk scoring page
-│   ├── 3_Migration_Planner.py      # PQC migration recommendations
-│   ├── 4_Reports.py                # PDF/CSV report exports
-│   └── 5_Methodology.py            # Standards & methodology reference
-├── qshield/
-│   ├── __init__.py                 # Package metadata
-│   ├── models.py                   # Data models & enumerations
-│   ├── database.py                 # SQLite abstraction layer
-│   ├── validation.py               # Input validation & sanitization
-│   ├── detection.py                # Cryptographic detection engine
-│   ├── risk_engine.py              # Explainable risk scoring
-│   ├── inventory.py                # Asset inventory management
-│   ├── recommendations.py          # Migration recommendations
-│   ├── ai_assistant.py             # Optional AI integration
-│   └── reporting.py                # PDF/CSV report generation
-├── data/
-│   ├── demo_assets.csv             # Synthetic demo dataset (15 assets)
-│   └── standards_reference.json    # NIST PQC standards reference
-├── tests/
-│   ├── test_detection.py           # Detection engine tests
-│   ├── test_risk_engine.py         # Risk scoring tests
-│   ├── test_inventory.py           # Inventory & database tests
-│   └── test_validation.py          # Input validation tests
-├── .streamlit/
-│   └── config.toml                 # Streamlit theme configuration
-└── .github/
-    └── workflows/
-        └── tests.yml               # CI test workflow
-```
+## 🤖 Optional AI assistant
 
-## Optional AI Configuration
-
-The app works fully without an AI API key. The Migration Planner uses Google Gemini when `GEMINI_API_KEY` is configured. OpenAI remains available as a fallback provider.
-
-### Local Development
-
-Create a `.env` file (never commit this):
+The application works without provider credentials. Rule-based analysis and migration recommendations remain available. To enable optional language-model guidance, create a local `.env` file:
 
 ```bash
 cp .env.example .env
-# Edit .env and set GEMINI_API_KEY to your Google AI Studio key
 ```
 
-The file must be named exactly `.env` in the project root. The app does not
-load secrets placed only in `.env.example`. In the Migration Planner, the AI
-status message reports whether a key was detected from `.env`, the process
-environment, or Streamlit secrets without displaying the key.
+Add a valid `GEMINI_API_KEY` (preferred) or `OPENAI_API_KEY`. Optional model settings are `QSHIELD_GEMINI_MODEL` and `QSHIELD_AI_MODEL`. Keep `.env` private and out of version control. The app reads secrets from the process environment or Streamlit secrets as well.
 
-### Streamlit Community Cloud
+The AI assistant is advisory. The migration planner sends a limited, anonymized assessment summary to the selected provider; it excludes asset names, IDs, owners, notes, and raw uploaded source files. Review provider terms and your organization’s data policy before enabling any external AI service.
 
-Add secrets in the Streamlit dashboard:
+## 🗃️ Data and assessment behavior
 
-1. Go to your app's **Settings → Secrets**
-2. Add:
-   ```toml
-   GEMINI_API_KEY = "your-gemini-api-key"
-   ```
+- **Storage:** SQLite, by default `qshield.db` in the project directory. Set `QSHIELD_DB_PATH` to choose another path.
+- **Import:** CSV and JSON uploads are validated before import. CSV headers map to the asset fields; JSON accepts an array of objects or an object containing an `assets` array. The default limits are 10 MB per upload and 5,000 records; set `QSHIELD_MAX_UPLOAD_MB` or `QSHIELD_MAX_RECORDS` to change them.
+- **Detection:** Rule-based classification covers common quantum-vulnerable public-key algorithms, recognized PQC algorithms, symmetric and hash algorithms, hybrid labels, and unknown values that need manual review.
+- **Risk score:** A versioned 0–100 weighted planning heuristic considers cryptographic exposure, data sensitivity and retention, business criticality, internet exposure, dependencies, and evidence uncertainty. Each result includes a factor breakdown, explanation, priority band, and suggested actions. These are not probabilities, CVSS ratings, or official NIST classifications.
+- **Migration progress:** Status and evidence are tracked per asset; completion is not inferred from an algorithm label. Reported status is not independently verified by Q-Shield.
+- **Exports:** Inventory CSV, combined assessment CSV, and a generated PDF report are produced from the current local workspace.
 
-## Deploy to Streamlit Community Cloud
+## 🧩 Project map
 
-1. Push this repository to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Click **New app** → select your repo
-4. Set **Main file path** to `app.py`
-5. (Optional) Add `GEMINI_API_KEY` in **Advanced settings → Secrets**
-6. Click **Deploy**
+```text
+QAudit/
+├── app.py                         # Command Center and Streamlit entry point
+├── pages/
+│   ├── 1_Asset_Inventory.py       # Import, edit, filter, and export inventory
+│   ├── 2_Risk_Assessment.py       # Detection findings and risk analysis
+│   ├── 3_Migration_Planner.py     # Recommendations, progress, optional AI
+│   ├── 4_Reports.py               # PDF and CSV reporting
+│   └── 5_Methodology.py           # Methodology and standards references
+├── qshield/
+│   ├── auth.py                    # Local demo login and workspace reset
+│   ├── database.py                # SQLite persistence
+│   ├── models.py                  # Shared asset and result models
+│   ├── validation.py              # Upload and input validation
+│   ├── inventory.py               # Demo data and inventory operations
+│   ├── detection.py               # Cryptographic classification rules
+│   ├── risk_engine.py             # Explainable scoring
+│   ├── assessment.py              # Shared assessment pipeline
+│   ├── recommendations.py         # Migration recommendations
+│   ├── migration_plan.py          # Progress and migration-plan data
+│   ├── ai_assistant.py            # Optional provider integrations
+│   ├── reporting.py               # PDF and CSV generation
+│   ├── standards.py               # Canonical standards-reference loader
+│   └── ui.py                      # Shared navigation, styles, and components
+├── data/
+│   ├── standards_reference.json   # Standards metadata
+│   ├── qshield_synthetic_inventory.csv
+│   └── qshield_synthetic_inventory_25.csv
+├── docs/                          # Project notes and interface preview
+├── tests/                         # pytest coverage for core modules and UI
+├── requirements.txt               # Runtime dependencies
+└── requirements-dev.txt            # Runtime dependencies plus pytest
+```
 
-No Docker or paid infrastructure required.
+## 🧪 Run tests
 
-## Migration-Priority Methodology
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest tests/ -v
+```
 
-Scores are weighted sums of normalized factors (0–100). They are planning heuristics, not probabilities, compliance ratings, CVSS scores, or NIST classifications:
+The suite covers authentication, AI behavior, validation, inventory, detection, scoring, migration planning, reporting, remediation, and selected UI regressions.
 
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| Cryptographic Exposure | 30% | Quantum vulnerability of the algorithm |
-| Data Sensitivity & Retention | 25% | Data classification + harvest-now-decrypt-later risk |
-| Business Criticality | 20% | Impact if compromised |
-| Internet Exposure | 10% | Public-facing vs. internal |
-| Dependency Complexity | 10% | Number of dependent systems |
-| Evidence Confidence | 5% | Uncertainty penalty for incomplete data |
+## ⚙️ Configuration reference
 
-**Priority Bands:** Critical [80,100], High [60,80), Medium [35,60), Low [0,35)
+| Variable | Purpose | Default |
+|---|---|---|
+| `QSHIELD_DB_PATH` | SQLite database location | `qshield.db` |
+| `QSHIELD_MAX_UPLOAD_MB` | Maximum upload size | `10` |
+| `QSHIELD_MAX_RECORDS` | Maximum imported records | `5000` |
+| `QSHIELD_DEMO_USERNAME` | Local demo username | `judge` |
+| `QSHIELD_DEMO_PASSWORD` | Local demo password | `qshield-demo` |
+| `GEMINI_API_KEY` | Optional preferred AI provider | unset |
+| `OPENAI_API_KEY` | Optional fallback AI provider | unset |
+| `QSHIELD_GEMINI_MODEL` | Gemini model override | `gemini-3.8-flash` |
+| `QSHIELD_AI_MODEL` | OpenAI model override | `gpt-4o-mini` |
 
-These are prototype defaults, not official NIST classifications.
+See [`.env.example`](.env.example) for the complete template and deployment notes.
 
-## Detection Rules
+## 🧭 Scope and limitations
 
-| Category | Algorithms | Classification |
-|----------|-----------|---------------|
-| Asymmetric (Vulnerable) | RSA, ECDH, ECDHE, ECDSA, EdDSA, DH, DSA | Quantum-vulnerable (Shor's algorithm) |
-| PQC Standards | ML-KEM (FIPS 203), ML-DSA (FIPS 204), SLH-DSA (FIPS 205) | Post-quantum secure |
-| Symmetric | AES-256, AES-128, ChaCha20, 3DES | Not broken by quantum computing |
-| Hash | SHA-256, SHA-3, SHA-512, SHA-1, MD5 | Not broken by quantum computing |
-| Hybrid | Classical + PQC combinations | Transition — needs verification |
-| Unknown | Unrecognized algorithms | Needs manual review |
+- Inventory is declared or uploaded; the app does not scan source code, hosts, networks, certificates, or live traffic.
+- Detection depends on the labels and evidence provided and may require manual review for aliases or unknown values.
+- Risk scores and migration recommendations are estimates for prioritization, not security guarantees or compliance determinations.
+- The demo authentication and local SQLite workspace are designed for local demonstration, not shared or production operation.
+- AI responses can be incomplete or incorrect and must be reviewed by a person.
+- PQC standards and transition guidance evolve; use the linked official references and your organization’s current policy.
 
-## Standards References
+## 📚 Standards references
 
-- **FIPS 203:** ML-KEM for key encapsulation — [csrc.nist.gov/pubs/fips/203/final](https://csrc.nist.gov/pubs/fips/203/final)
-- **FIPS 204:** ML-DSA for digital signatures — [csrc.nist.gov/pubs/fips/204/final](https://csrc.nist.gov/pubs/fips/204/final)
-- **FIPS 205:** SLH-DSA for hash-based signatures — [csrc.nist.gov/pubs/fips/205/final](https://csrc.nist.gov/pubs/fips/205/final)
-- **NIST IR 8547:** Transition to PQC Standards — [csrc.nist.gov/pubs/ir/8547/final](https://csrc.nist.gov/pubs/ir/8547/final)
-- **OWASP A02:2021:** Cryptographic Failures — [owasp.org/Top10/A02_2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/)
+Q-Shield’s reference module includes entries for NIST PQC standards and related guidance. Consult the official sources for authoritative and current requirements:
 
-## Known Limitations
+- [NIST FIPS 203 — Module-Lattice-Based Key-Encapsulation Mechanism](https://csrc.nist.gov/pubs/fips/203/final)
+- [NIST FIPS 204 — Module-Lattice-Based Digital Signature Standard](https://csrc.nist.gov/pubs/fips/204/final)
+- [NIST FIPS 205 — Stateless Hash-Based Digital Signature Standard](https://csrc.nist.gov/pubs/fips/205/final)
+- [NIST IR 8547 — Transition to Post-Quantum Cryptography Standards](https://csrc.nist.gov/pubs/ir/8547/final)
+- [OWASP Top 10:2021 — A02 Cryptographic Failures](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/)
 
-1. **Declared inventory only** — no live discovery or runtime verification
-2. **Prototype status** — not a production enterprise security system
-3. **Rule-based detection** — recognizes a defined set of algorithms; unusual names flagged for review
-4. **No live scanning** — assesses declared configurations, not live traffic
-5. **Score precision** — approximate estimates for planning, not precise measurements
-6. **No multi-tenancy** — demo deployment does not isolate user data
-7. **Migration status is owner-reported** — “Completed” is not verified by Q-Shield
-8. **AI limitations** — AI recommendations may be incomplete; always require human review
-9. **Standard evolution** — NIST guidance may be updated; reference set should be refreshed periodically
+## 🎓 License and use
 
-## License
-
-This project is provided for educational and assessment-planning purposes.
+This repository is provided for educational, demonstration, and assessment-planning use. No production security or compliance guarantee is provided.
 
 ---
 
-*Q-Shield — Quantum-Readiness Intelligence for Enterprise Security*
-*Track: Cybersecurity*
+**Q-Shield · PQC Security Operations**
