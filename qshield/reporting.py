@@ -475,7 +475,11 @@ def generate_pdf_report(
         if score.get("explanation"):
             pdf.ln(1)
             key_value("Score explanation", score.get("explanation"))
-        if finding.get("recommendation"):
+        # Recommendations are repeated in the dedicated migration-plan page.
+        # Keep them in the detail page only when there is no plan record; long
+        # guidance at the bottom of an asset page can otherwise push its last
+        # wrapped line onto a nearly empty continuation page.
+        if finding.get("recommendation") and not rec:
             pdf.ln(1)
             key_value("Detection guidance", finding.get("recommendation"))
 
@@ -507,10 +511,10 @@ def generate_pdf_report(
                 items = items or []
                 if not items:
                     return
-                pdf.ln(5)
+                pdf.ln(3)
                 pdf.set_text_color(*navy)
-                pdf.set_font("Helvetica", "B", 10)
-                pdf.cell(0, 6, _safe_str(title), new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("Helvetica", "B", 9)
+                pdf.cell(0, 5, _safe_str(title), new_x="LMARGIN", new_y="NEXT")
                 for number, item in enumerate(items, start=1):
                     y = pdf.get_y() + 1
                     pdf.set_fill_color(*accent)
@@ -521,9 +525,9 @@ def generate_pdf_report(
                     pdf.cell(5, 4, str(number), align="C")
                     pdf.set_xy(23, y)
                     pdf.set_text_color(*ink)
-                    pdf.set_font("Helvetica", "", 8)
-                    pdf.multi_cell(169, 4.5, _safe_str(str(item)))
-                    pdf.ln(1)
+                    pdf.set_font("Helvetica", "", 7.5)
+                    pdf.multi_cell(169, 4, _safe_str(str(item)))
+                    pdf.ln(0.4)
 
             action_list("Suggested actions", rec.get("suggested_actions", []), teal)
             action_list("Validation requirements", rec.get("validation_requirements", []), risk_colors["High"])
