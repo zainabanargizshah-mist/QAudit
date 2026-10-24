@@ -16,6 +16,7 @@ from qshield.database import Database
 from qshield.inventory import load_demo_assets, import_assets_to_db, get_assets_dataframe
 from qshield.assessment import assess_all
 from qshield.models import DEFAULT_SCORING_CONFIG
+from qshield.ui import inject_styles, render_sidebar, render_page_header
 
 
 # ── Page Config ──────────────────────────────────────────────────────
@@ -27,118 +28,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Custom CSS ───────────────────────────────────────────────────────
-
-st.markdown("""
-<style>
-    /* Sidebar styling */
-    [data-testid="stSidebar"] {
-        background-color: #1a1f36;
-    }
-    [data-testid="stSidebar"] * {
-        color: #e0e4ef !important;
-    }
-    [data-testid="stSidebar"] .stMarkdown h1,
-    [data-testid="stSidebar"] .stMarkdown h2,
-    [data-testid="stSidebar"] .stMarkdown h3 {
-        color: #ffffff !important;
-    }
-
-    /* Metric cards */
-    [data-testid="stMetric"] {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 12px 16px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    }
-    [data-testid="stMetric"] label {
-        color: #64748b !important;
-        font-size: 0.8rem !important;
-    }
-    [data-testid="stMetric"] [data-testid="stMetricValue"] {
-        color: #1a1f36 !important;
-        font-weight: 700 !important;
-    }
-
-    /* Header styling */
-    .main-header {
-        background: linear-gradient(135deg, #0e7c86 0%, #1a1f36 100%);
-        padding: 20px 24px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        color: white;
-    }
-    .main-header h1 {
-        margin: 0;
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: white !important;
-    }
-    .main-header p {
-        margin: 4px 0 0 0;
-        opacity: 0.85;
-        font-size: 0.95rem;
-    }
-
-    /* Demo badge */
-    .demo-badge {
-        display: inline-block;
-        background-color: #f59e0b;
-        color: #1a1f36 !important;
-        padding: 3px 10px;
-        border-radius: 4px;
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        margin-left: 8px;
-        vertical-align: middle;
-    }
-
-    /* Risk level badges */
-    .risk-critical { color: #dc2626; font-weight: 700; }
-    .risk-high { color: #ea580c; font-weight: 700; }
-    .risk-medium { color: #d97706; font-weight: 600; }
-    .risk-low { color: #16a34a; font-weight: 600; }
-
-    /* Priority table */
-    .priority-item {
-        background: #fff;
-        border-left: 4px solid #dc2626;
-        padding: 10px 14px;
-        margin-bottom: 8px;
-        border-radius: 0 6px 6px 0;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-    .priority-item-high {
-        border-left-color: #ea580c;
-    }
-    .priority-item-medium {
-        border-left-color: #d97706;
-    }
-
-    /* Clean divider */
-    hr {
-        border: none;
-        border-top: 1px solid #e2e8f0;
-        margin: 16px 0;
-    }
-
-    /* Hide Streamlit footer */
-    footer { visibility: hidden; }
-
-    /* Info boxes */
-    .info-box {
-        background-color: #f0f9ff;
-        border: 1px solid #bae6fd;
-        border-radius: 6px;
-        padding: 12px 16px;
-        margin: 8px 0;
-        font-size: 0.9rem;
-        color: #0c4a6e;
-    }
-</style>
-""", unsafe_allow_html=True)
+inject_styles()
 
 
 # ── Initialize Database ──────────────────────────────────────────────
@@ -159,18 +49,8 @@ def _run_assessment(database: Database):
 
 # ── Sidebar ──────────────────────────────────────────────────────────
 
+render_sidebar("Command Center")
 with st.sidebar:
-    st.markdown("## 🛡️ Q-Shield")
-    st.markdown(f"*{__app_subtitle__}*")
-    st.markdown("---")
-
-    st.markdown("### Navigation")
-    st.page_link("app.py", label="📊 Overview", icon=None)
-    st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-    st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-    st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-    st.page_link("pages/4_Reports.py", label="📄 Reports")
-    st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
 
     st.markdown("---")
 
@@ -200,12 +80,7 @@ with st.sidebar:
 
 # ── Main Dashboard ───────────────────────────────────────────────────
 
-st.markdown(f"""
-<div class="main-header">
-    <h1>🛡️ Q-Shield</h1>
-    <p>{__app_subtitle__}</p>
-</div>
-""", unsafe_allow_html=True)
+render_page_header("Quantum readiness · command center", "Q-Shield Command Center", __app_subtitle__)
 
 # Check if data is loaded
 stats = db.get_summary_stats()
@@ -277,8 +152,8 @@ if assessments:
         ])
         if not risk_df.empty:
             color_map = {
-                "Critical": "#dc2626", "High": "#ea580c",
-                "Medium": "#d97706", "Low": "#16a34a"
+                "Critical": "#ff1018", "High": "#171717",
+                "Medium": "#77777d", "Low": "#c8c6cb"
             }
             fig = px.bar(
                 risk_df, x="Risk Level", y="Count",
@@ -311,7 +186,7 @@ if assessments:
             ])
             fig = px.pie(
                 algo_df, values="Count", names="Algorithm",
-                color_discrete_sequence=px.colors.qualitative.Set2,
+                color_discrete_sequence=["#ff1018", "#171717", "#77777d", "#c8c6cb"],
                 hole=0.4
             )
             fig.update_layout(
@@ -338,7 +213,7 @@ if assessments:
             ])
             fig = px.bar(
                 type_df, x="Count", y="Type", orientation="h",
-                color_discrete_sequence=["#0e7c86"],
+                color_discrete_sequence=["#ff1018"],
                 text="Count"
             )
             fig.update_layout(
@@ -377,8 +252,8 @@ if assessments:
                 crit_df, x="Criticality", y="Vulnerable Assets",
                 color="Criticality",
                 color_discrete_map={
-                    "Critical": "#dc2626", "High": "#ea580c",
-                    "Medium": "#d97706", "Low": "#16a34a"
+                    "Critical": "#ff1018", "High": "#171717",
+                    "Medium": "#77777d", "Low": "#c8c6cb"
                 },
                 text="Vulnerable Assets"
             )
@@ -404,9 +279,9 @@ if assessments:
             for k, v in status_counts.items()
         ])
         status_colors = {
-            "Not Started": "#94a3b8", "Assessment": "#3b82f6",
-            "Planned": "#8b5cf6", "Testing": "#f59e0b",
-            "Ready for Review": "#f97316", "Completed": "#16a34a"
+            "Not Started": "#c8c6cb", "Assessment": "#77777d",
+            "Planned": "#171717", "Testing": "#ff1018",
+            "Ready for Review": "#c9070d", "Completed": "#45454a"
         }
         fig = px.bar(
             status_df, x="Status", y="Count",

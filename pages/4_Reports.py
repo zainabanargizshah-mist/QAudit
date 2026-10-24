@@ -19,6 +19,7 @@ from qshield.recommendations import generate_all_recommendations
 from qshield.reporting import generate_csv_report, generate_pdf_report
 from qshield.models import DetectionFinding, RiskScoreResult
 from qshield.inventory import export_assets_csv
+from qshield.ui import inject_styles, render_sidebar, render_page_header
 
 
 st.set_page_config(
@@ -39,6 +40,7 @@ st.markdown("""
     footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
+inject_styles()
 
 @st.cache_resource
 def get_database():
@@ -46,25 +48,10 @@ def get_database():
 
 db = get_database()
 
-with st.sidebar:
-    st.markdown("## 🛡️ Q-Shield")
-    st.markdown("---")
-    try:
-        st.page_link("app.py", label="📊 Overview")
-        st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-        st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-        st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-        st.page_link("pages/4_Reports.py", label="📄 Reports")
-        st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
-    except StreamlitAPIException:
-        st.caption("Use the main app to navigate between pages.")
+render_sidebar("Reports")
 
 # ── Header ───────────────────────────────────────────────────────────
-st.markdown("# 📄 Reports & Exports")
-st.markdown(
-    "Generate and download assessment reports from the current data. "
-    "Reports contain decision-support findings, not compliance certifications."
-)
+render_page_header("Evidence · reporting", "Reports & Exports", "Generate and download assessment reports from the current data. Reports contain decision-support findings, not compliance certifications.")
 
 assets = db.get_all_assets()
 assessments = db.get_all_assessments()
@@ -115,70 +102,72 @@ now = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
 # ── Export Buttons ───────────────────────────────────────────────────
 st.markdown("### Available Exports")
 
-col_a, col_b, col_c = st.columns(3)
+col_csv, col_pdf = st.columns(2, gap="large")
 
-# CSV Inventory
-with col_a:
-    st.markdown("#### 📋 Asset Inventory (CSV)")
-    st.caption("Raw inventory data with all asset fields.")
+# CSV exports
+with col_csv:
+    st.markdown("#### 📊 Data Exports")
     csv_inv = export_assets_csv(db)
-    st.download_button(
-        "📥 Download Inventory CSV",
-        csv_inv,
-        file_name=f"qshield_inventory_{now}.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
-
-# CSV Assessment
-with col_b:
-    st.markdown("#### ⚡ Assessment Results (CSV)")
-    st.caption("Combined inventory + findings + risk scores.")
-    csv_report = generate_csv_report(assets, finding_dicts, score_dicts)
-    st.download_button(
-        "📥 Download Assessment CSV",
-        csv_report,
-        file_name=f"qshield_assessment_{now}.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
-
-# PDF Report
-with col_c:
-    st.markdown("#### 📄 Full PDF Report")
-    st.caption("Professional report with executive summary, findings, recommendations, and methodology.")
-
-    report_source = json.dumps(
-        {"assets": assets, "assessments": assessments},
-        sort_keys=True,
-        default=str,
-    )
-    report_fingerprint = hashlib.sha256(report_source.encode("utf-8")).hexdigest()
-    if st.session_state.get("pdf_report_fingerprint") != report_fingerprint:
-        st.session_state.pop("pdf_report_bytes", None)
-        st.session_state["pdf_report_fingerprint"] = report_fingerprint
-
-    if st.button("📄 Generate PDF Report", type="primary", use_container_width=True):
-        with st.spinner("Generating PDF report..."):
-            try:
-                st.session_state["pdf_report_bytes"] = generate_pdf_report(
-                    assets, finding_dicts, score_dicts, recs, stats,
-                )
-                st.success("✅ PDF report generated successfully.")
-                db.log_activity("Report generated", "PDF assessment report")
-            except Exception as e:
-                st.session_state.pop("pdf_report_bytes", None)
-                st.error(f"❌ Error generating PDF: {str(e)[:200]}")
-
-    pdf_bytes = st.session_state.get("pdf_report_bytes")
-    if pdf_bytes:
+    with st.container(border=True):
+        st.markdown("##### 📋 Asset Inventory (CSV)")
+        st.caption("Raw inventory data with all asset fields.")
         st.download_button(
-            "📥 Download PDF Report",
-            pdf_bytes,
-            file_name=f"qshield_report_{now}.pdf",
-            mime="application/pdf",
+            "📥 Download Inventory CSV",
+            csv_inv,
+            file_name=f"qshield_inventory_{now}.csv",
+            mime="text/csv",
             use_container_width=True,
         )
+
+    csv_report = generate_csv_report(assets, finding_dicts, score_dicts)
+    with st.container(border=True):
+        st.markdown("##### ⚡ Assessment Results (CSV)")
+        st.caption("Combined inventory, findings, and risk scores.")
+        st.download_button(
+            "📥 Download Assessment CSV",
+            csv_report,
+            file_name=f"qshield_assessment_{now}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+# PDF Report
+with col_pdf:
+    st.markdown("#### 📄 Full PDF Report")
+    with st.container(border=True):
+        st.caption("Executive summary, findings, recommendations, and methodology in a paginated report.")
+
+        report_source = json.dumps(
+            {"assets": assets, "assessments": assessments},
+            sort_keys=True,
+            default=str,
+        )
+        report_fingerprint = hashlib.sha256(report_source.encode("utf-8")).hexdigest()
+        if st.session_state.get("pdf_report_fingerprint") != report_fingerprint:
+            st.session_state.pop("pdf_report_bytes", None)
+            st.session_state["pdf_report_fingerprint"] = report_fingerprint
+
+        if st.button("📄 Generate PDF Report", type="primary", use_container_width=True):
+            with st.spinner("Generating PDF report..."):
+                try:
+                    st.session_state["pdf_report_bytes"] = generate_pdf_report(
+                        assets, finding_dicts, score_dicts, recs, stats,
+                    )
+                    st.success("✅ PDF report generated successfully.")
+                    db.log_activity("Report generated", "PDF assessment report")
+                except Exception as e:
+                    st.session_state.pop("pdf_report_bytes", None)
+                    st.error(f"❌ Error generating PDF: {str(e)[:200]}")
+
+        pdf_bytes = st.session_state.get("pdf_report_bytes")
+        if pdf_bytes:
+            st.download_button(
+                "📥 Download PDF Report",
+                pdf_bytes,
+                file_name=f"qshield_report_{now}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
 
 st.markdown("---")
 

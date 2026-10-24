@@ -18,6 +18,7 @@ from qshield.recommendations import (
 )
 from qshield.models import MigrationStatus, NIST_PQC_STANDARDS, DetectionFinding, RiskScoreResult, CryptographicAsset
 from qshield.ai_assistant import AIAssistant
+from qshield.ui import inject_styles, render_sidebar, render_page_header
 
 
 st.set_page_config(
@@ -49,6 +50,7 @@ st.markdown("""
     footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
+inject_styles()
 
 @st.cache_resource
 def get_database():
@@ -56,25 +58,10 @@ def get_database():
 
 db = get_database()
 
-with st.sidebar:
-    st.markdown("## 🛡️ Q-Shield")
-    st.markdown("---")
-    try:
-        st.page_link("app.py", label="📊 Overview")
-        st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-        st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-        st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-        st.page_link("pages/4_Reports.py", label="📄 Reports")
-        st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
-    except StreamlitAPIException:
-        st.caption("Use the main app to navigate between pages.")
+render_sidebar("Migration Roadmap")
 
 # ── Header ───────────────────────────────────────────────────────────
-st.markdown("# 🗺️ PQC Migration Planner")
-st.markdown(
-    "Phased migration recommendations aligned with NIST PQC standards. "
-    "'Completed' status means a user has recorded completion — it is not inferred from algorithm presence."
-)
+render_page_header("Transition · planning", "PQC Migration Planner", "Phased migration recommendations aligned with NIST PQC standards. 'Completed' status means a user has recorded completion — it is not inferred from algorithm presence.")
 
 assets = db.get_all_assets()
 assessments = db.get_all_assessments()

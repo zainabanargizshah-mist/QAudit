@@ -13,6 +13,7 @@ from streamlit.errors import StreamlitAPIException
 from qshield.models import DEFAULT_SCORING_CONFIG, NIST_PQC_STANDARDS
 from qshield.ai_assistant import get_standards_reference
 from qshield.standards import standards_reference_version
+from qshield.ui import inject_styles, render_sidebar, render_page_header
 
 
 st.set_page_config(
@@ -28,26 +29,12 @@ st.markdown("""
     footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
+inject_styles()
 
-with st.sidebar:
-    st.markdown("## 🛡️ Q-Shield")
-    st.markdown("---")
-    try:
-        st.page_link("app.py", label="📊 Overview")
-        st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-        st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-        st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-        st.page_link("pages/4_Reports.py", label="📄 Reports")
-        st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
-    except StreamlitAPIException:
-        st.caption("Use the main app to navigate between pages.")
+render_sidebar("Standards")
 
 # ── Header ───────────────────────────────────────────────────────────
-st.markdown("# 📚 Methodology & Standards")
-st.markdown(
-    "How Q-Shield detects quantum-vulnerable cryptography, scores risk, "
-    "and generates recommendations — with full transparency."
-)
+render_page_header("Reference · methodology", "Methodology & Standards", "How Q-Shield detects quantum-vulnerable cryptography, scores risk, and generates recommendations — with full transparency.")
 
 # ── NIST PQC Standards ───────────────────────────────────────────────
 st.markdown("---")

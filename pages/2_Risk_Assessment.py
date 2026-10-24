@@ -14,6 +14,7 @@ from streamlit.errors import StreamlitAPIException
 from qshield.database import Database
 from qshield.assessment import assess_asset
 from qshield.models import DEFAULT_SCORING_CONFIG
+from qshield.ui import inject_styles, render_sidebar, render_page_header
 
 
 st.set_page_config(
@@ -38,6 +39,7 @@ st.markdown("""
     footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
+inject_styles()
 
 @st.cache_resource
 def get_database():
@@ -45,25 +47,10 @@ def get_database():
 
 db = get_database()
 
-with st.sidebar:
-    st.markdown("## 🛡️ Q-Shield")
-    st.markdown("---")
-    try:
-        st.page_link("app.py", label="📊 Overview")
-        st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-        st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-        st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-        st.page_link("pages/4_Reports.py", label="📄 Reports")
-        st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
-    except StreamlitAPIException:
-        st.caption("Use the main app to navigate between pages.")
+render_sidebar("Risk Queue")
 
 # ── Header ───────────────────────────────────────────────────────────
-st.markdown("# ⚡ Risk Assessment")
-st.markdown(
-    "Deterministic cryptographic detection and transparent risk scoring. "
-    "Scores are decision-support estimates, not certified security ratings."
-)
+render_page_header("Detection · prioritization", "Risk Assessment", "Deterministic cryptographic detection and transparent risk scoring. Scores are decision-support estimates, not certified security ratings.")
 
 assets = db.get_all_assets()
 
@@ -247,8 +234,8 @@ if score_data_list:
     score_df = score_df.sort_values("Score", ascending=True)
 
     color_map = {
-        "Critical": "#dc2626", "High": "#ea580c",
-        "Medium": "#d97706", "Low": "#16a34a", "Unknown": "#94a3b8",
+        "Critical": "#ff1018", "High": "#171717",
+        "Medium": "#77777d", "Low": "#c8c6cb", "Unknown": "#c8c6cb",
     }
 
     fig = px.bar(
@@ -267,7 +254,7 @@ if score_data_list:
     fig.update_traces(textposition="outside")
     # Add risk band lines
     fig.add_vline(x=80, line_dash="dot", line_color="#dc2626", annotation_text="Critical", annotation_position="top")
-    fig.add_vline(x=60, line_dash="dot", line_color="#ea580c", annotation_text="High")
-    fig.add_vline(x=35, line_dash="dot", line_color="#d97706", annotation_text="Medium")
+    fig.add_vline(x=60, line_dash="dot", line_color="#ff1018", annotation_text="High")
+    fig.add_vline(x=35, line_dash="dot", line_color="#77777d", annotation_text="Medium")
 
     st.plotly_chart(fig, use_container_width=True)

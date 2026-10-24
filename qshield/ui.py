@@ -29,6 +29,12 @@ def render_cyber_background() -> None:
             <div class="qs-cyber-node qs-node-one"></div>
             <div class="qs-cyber-node qs-node-two"></div>
             <div class="qs-cyber-node qs-node-three"></div>
+            <div class="qs-floating-icon qs-float-shield">◈</div>
+            <div class="qs-floating-icon qs-float-lock">⌑</div>
+            <div class="qs-floating-icon qs-float-key">⚿</div>
+            <div class="qs-floating-icon qs-float-network">⌬</div>
+            <div class="qs-floating-icon qs-float-quantum">⟡</div>
+            <div class="qs-floating-icon qs-float-audit">◎</div>
             <div class="qs-cyber-telemetry qs-telemetry-left">01001001<br>10110010<br>00101101<br>11010100</div>
             <div class="qs-cyber-telemetry qs-telemetry-right">N1 // INVENTORY<br>N2 // DETECT<br>N3 // SCORE<br>N4 // MIGRATE<br>N5 // VERIFY</div>
             <div class="qs-cyber-scanline"></div>
@@ -239,8 +245,10 @@ def inject_styles() -> None:
             .qs-marquee-dot { width: 7px; height: 7px; background: var(--qs-red); box-shadow: 0 0 10px rgba(255,16,24,0.8); }
 
             [data-testid="stHeader"] {
-                background: rgba(240, 238, 242, 0.92);
-                border-bottom: 1px solid #0a0a0a;
+                background: rgba(240, 238, 242, 0.58);
+                border-bottom: 1px solid rgba(8, 8, 8, 0.14);
+                backdrop-filter: blur(18px) saturate(1.12);
+                -webkit-backdrop-filter: blur(18px) saturate(1.12);
             }
 
             [data-testid="stSidebar"] {
@@ -530,7 +538,7 @@ def inject_styles() -> None:
             div[data-testid="stDataFrame"] {
                 border: 1px solid #0a0a0a;
                 border-radius: 0;
-                overflow: hidden;
+                overflow: visible;
             }
 
             div[data-testid="stExpander"] {
@@ -631,6 +639,379 @@ def inject_styles() -> None:
                 .qs-flow-step::after { display: none !important; }
                 .qs-page-header { padding: 22px 20px 24px; box-shadow: 6px 6px 0 var(--qs-red); }
                 .qs-page-header h1 { font-size: 1.55rem; }
+            }
+
+            /* Additive flow-state layer: preserves the redline palette while
+               giving related surfaces one continuous, glass-like environment. */
+            .stApp {
+                background-image:
+                    radial-gradient(circle at 12% 8%, rgba(255, 16, 24, 0.09), transparent 25%),
+                    radial-gradient(circle at 88% 84%, rgba(255, 255, 255, 0.5), transparent 28%),
+                    linear-gradient(var(--qs-grid) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--qs-grid) 1px, transparent 1px);
+                background-size: auto, auto, 48px 48px, 48px 48px;
+                background-attachment: fixed;
+            }
+
+            .main .block-container {
+                position: relative;
+                max-width: 1480px;
+                padding-top: 2.25rem;
+                padding-bottom: 3.5rem;
+            }
+
+            /* Keep the Streamlit shell viewport-bounded so its content can scroll. */
+            [data-testid="stAppViewContainer"] {
+                height: 100vh;
+                max-height: 100vh;
+                overflow: hidden;
+            }
+
+            [data-testid="stAppViewContainer"] > .main {
+                height: 100%;
+                min-height: 0;
+                overflow-y: auto;
+                overscroll-behavior-y: contain;
+            }
+
+            [data-testid="stSidebar"] {
+                height: 100%;
+                min-height: 0;
+            }
+
+            /* Q-Shield renders its own styled links; hide Streamlit's duplicate list. */
+            [data-testid="stSidebarNav"] {
+                display: none;
+            }
+
+            [data-testid="stSidebar"] > div:first-child {
+                height: 100%;
+                overflow-y: auto;
+                overscroll-behavior-y: contain;
+            }
+
+            /* Tab content needs a real inner gutter; Streamlit's default panel has none. */
+            div[data-testid="stTabs"] [role="tabpanel"] {
+                box-sizing: border-box;
+                min-width: 0;
+                padding: 16px clamp(14px, 2.5vw, 24px) 22px;
+            }
+
+            @media (max-width: 760px) {
+                div[data-testid="stTabs"] [role="tablist"] { flex-wrap: wrap; }
+                div[data-testid="stTabs"] [role="tab"] {
+                    max-width: 100%;
+                    white-space: normal;
+                    text-align: center;
+                }
+            }
+
+            .qs-cyber-background { opacity: 0.42; }
+
+            .qs-cyber-background::before {
+                background:
+                    radial-gradient(circle at 16% 27%, rgba(255,16,24,0.15), transparent 18%),
+                    radial-gradient(circle at 83% 72%, rgba(255,255,255,0.32), transparent 22%),
+                    repeating-linear-gradient(135deg, transparent 0 62px, rgba(0,0,0,0.045) 63px 64px);
+                filter: blur(0.2px);
+            }
+
+            .qs-floating-icon {
+                position: absolute;
+                display: grid;
+                place-items: center;
+                width: 44px;
+                height: 44px;
+                border: 1px solid rgba(8, 8, 8, 0.22);
+                border-radius: 14px;
+                color: rgba(255, 16, 24, 0.72);
+                background: rgba(255, 255, 255, 0.24);
+                box-shadow: 0 10px 24px rgba(8, 8, 8, 0.08), inset 0 1px 0 rgba(255,255,255,0.48);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                font-size: 1.15rem;
+                font-weight: 800;
+                text-shadow: 0 0 16px rgba(255, 16, 24, 0.22);
+                animation: qs-gentle-float 6s ease-in-out infinite;
+            }
+
+            .qs-float-shield { left: 15%; top: 17%; animation-delay: -1.2s; }
+            .qs-float-lock { right: 15%; top: 25%; animation-delay: -3.7s; }
+            .qs-float-key { left: 7%; bottom: 22%; animation-delay: -2.6s; }
+            .qs-float-network { right: 8%; bottom: 18%; animation-delay: -4.3s; }
+            .qs-float-quantum { left: 46%; top: 11%; animation-delay: -0.8s; }
+            .qs-float-audit { right: 33%; bottom: 10%; animation-delay: -5.1s; }
+
+            .qs-flow-map,
+            .qs-marquee,
+            .qs-card,
+            [data-testid="stMetric"],
+            div[data-testid="stDataFrame"],
+            div[data-testid="stExpander"],
+            div[data-testid="stTabs"] {
+                position: relative;
+                isolation: isolate;
+            }
+
+            .qs-flow-map,
+            .qs-card,
+            [data-testid="stMetric"],
+            div[data-testid="stDataFrame"],
+            div[data-testid="stExpander"],
+            div[data-testid="stTabs"] {
+                border-color: rgba(8, 8, 8, 0.58);
+                background: linear-gradient(135deg, rgba(255,255,255,0.76), rgba(255,255,255,0.43));
+                box-shadow: 0 18px 42px rgba(28, 17, 28, 0.08), inset 0 1px 0 rgba(255,255,255,0.62);
+                backdrop-filter: blur(14px);
+                -webkit-backdrop-filter: blur(14px);
+            }
+
+            .qs-flow-map::before,
+            .qs-card::before,
+            [data-testid="stMetric"]::before,
+            div[data-testid="stExpander"]::before,
+            div[data-testid="stTabs"]::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                z-index: -1;
+                border-radius: inherit;
+                background: linear-gradient(115deg, rgba(255,255,255,0.26), transparent 32%, rgba(255,16,24,0.035));
+                pointer-events: none;
+            }
+
+            .qs-flow-step {
+                background: rgba(255,255,255,0.18);
+                border-right-color: rgba(8,8,8,0.42);
+            }
+
+            .qs-flow-step:hover {
+                background: rgba(8,8,8,0.94);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+            }
+
+            .qs-page-header {
+                border-color: rgba(8, 8, 8, 0.9);
+                background: linear-gradient(120deg, rgba(8,8,8,0.9), rgba(23,15,18,0.78));
+                box-shadow: 12px 12px 0 rgba(255,16,24,0.92), 0 20px 46px rgba(23, 7, 11, 0.15);
+                backdrop-filter: blur(18px) saturate(1.12);
+                -webkit-backdrop-filter: blur(18px) saturate(1.12);
+            }
+
+            .qs-page-header::before {
+                content: "";
+                position: absolute;
+                inset: 1px;
+                border: 1px solid rgba(255,255,255,0.12);
+                border-radius: inherit;
+                pointer-events: none;
+            }
+
+            .qs-card:hover,
+            [data-testid="stMetric"]:hover {
+                border-color: rgba(255,16,24,0.78);
+                box-shadow: 0 22px 48px rgba(28, 17, 28, 0.12), 8px 8px 0 rgba(255,16,24,0.78);
+                transform: translate(-2px, -4px);
+            }
+
+            .qs-callout {
+                border-color: rgba(8,8,8,0.55);
+                background: rgba(255,255,255,0.62);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.62);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+            }
+
+            [data-testid="stSidebar"] {
+                background: linear-gradient(165deg, rgba(5,5,5,0.98), rgba(18,8,10,0.96));
+                box-shadow: 16px 0 42px rgba(8, 8, 8, 0.1);
+            }
+
+            [data-testid="stSidebar"] .stButton button,
+            [data-testid="stSidebar"] a {
+                background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.04));
+                border-color: rgba(255,255,255,0.28);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 8px 22px rgba(0,0,0,0.18);
+                backdrop-filter: blur(12px) saturate(1.15);
+                -webkit-backdrop-filter: blur(12px) saturate(1.15);
+            }
+
+            [data-testid="stSidebar"] a:hover {
+                background: rgba(255,16,24,0.2);
+                box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16), 0 0 18px rgba(255,16,24,0.08);
+            }
+
+            [data-baseweb="input"] > div,
+            [data-baseweb="select"] > div,
+            textarea,
+            [data-testid="stFileUploaderDropzone"] {
+                border: 1px solid rgba(8,8,8,0.46) !important;
+                border-radius: 12px !important;
+                background: rgba(255,255,255,0.62) !important;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+                transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+            }
+
+            [data-baseweb="input"] > div:focus-within,
+            [data-baseweb="select"] > div:focus-within,
+            textarea:focus,
+            [data-testid="stFileUploaderDropzone"]:focus-within {
+                border-color: var(--qs-red) !important;
+                background: rgba(255,255,255,0.82) !important;
+                box-shadow: 0 0 0 3px rgba(255,16,24,0.14), inset 0 1px 0 rgba(255,255,255,0.72);
+            }
+
+            .stButton button:focus-visible,
+            .stDownloadButton button:focus-visible,
+            [data-baseweb="select"]:focus-within,
+            input:focus-visible,
+            textarea:focus-visible,
+            button:focus-visible,
+            a:focus-visible {
+                outline: 3px solid rgba(255,16,24,0.38) !important;
+                outline-offset: 3px !important;
+            }
+
+            div[data-testid="stDataFrame"] {
+                background: rgba(255,255,255,0.7);
+            }
+
+            div[data-testid="stExpander"] summary:hover {
+                background: rgba(255,16,24,0.06);
+            }
+
+            [data-testid="stAlert"] {
+                border-radius: 12px;
+                border-left-width: 4px;
+                box-shadow: 0 12px 26px rgba(28,17,28,0.08), inset 0 1px 0 rgba(255,255,255,0.45);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+            }
+
+            .stProgress > div > div > div {
+                background: linear-gradient(90deg, var(--qs-red-dark), var(--qs-red));
+            }
+
+            @keyframes qs-gentle-float {
+                0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+                50% { transform: translate3d(0, -7px, 0) rotate(2deg); }
+            }
+
+            @media (max-width: 900px) {
+                .qs-floating-icon { opacity: 0.55; transform: scale(0.82); }
+                .qs-float-quantum,
+                .qs-float-audit { display: none; }
+            }
+
+            @media (max-width: 620px) {
+                .main .block-container { padding-top: 1.25rem; }
+                .qs-floating-icon { display: none; }
+                .qs-page-header { box-shadow: 7px 7px 0 rgba(255,16,24,0.92); }
+            }
+
+            /* Refined operations-console surfaces and reduced ambient motion. */
+            :root { color-scheme: light; }
+
+            body, .stApp, [data-testid="stAppViewContainer"] {
+                color: var(--qs-ink);
+                font-family: Inter, "Aptos", "Segoe UI", sans-serif;
+            }
+
+            h1, h2, h3, h4 {
+                color: var(--qs-ink);
+                font-weight: 800;
+                text-transform: uppercase;
+            }
+
+            h2, h3, h4 { letter-spacing: 0.015em; }
+
+            .qs-page-header {
+                border-radius: 18px;
+                box-shadow: 0 18px 42px rgba(18, 10, 14, 0.14), 5px 5px 0 rgba(255,16,24,0.88);
+            }
+
+            .qs-page-header::after { border-radius: inherit; }
+
+            .qs-card,
+            [data-testid="stMetric"],
+            div[data-testid="stDataFrame"],
+            div[data-testid="stExpander"],
+            div[data-testid="stTabs"],
+            .phase-card,
+            .priority-item {
+                border: 1px solid rgba(255, 255, 255, 0.72);
+                border-radius: 16px;
+                background: linear-gradient(135deg, rgba(255,255,255,0.34), rgba(255,255,255,0.18) 66%, rgba(255,16,24,0.075));
+                box-shadow: 0 18px 44px rgba(25, 18, 25, 0.12), inset 0 1px 0 rgba(255,255,255,0.98), inset 0 -1px 0 rgba(255,16,24,0.16);
+                backdrop-filter: blur(30px) saturate(1.35);
+                -webkit-backdrop-filter: blur(30px) saturate(1.35);
+            }
+
+            .qs-card { padding: 20px; }
+            [data-testid="stMetric"] { border-top: 2px solid rgba(255,16,24,0.72); }
+            [data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; }
+            .qs-card-value { font-variant-numeric: tabular-nums; }
+
+            div[data-testid="stExpander"] { overflow: visible; }
+            div[data-testid="stDataFrame"] { overflow: visible; }
+
+            .phase-card { padding: 18px; margin: 10px 0; }
+            .phase-number { background: var(--qs-red); border-radius: 9px; }
+
+            .priority-item {
+                padding: 14px 16px;
+                margin: 10px 0;
+                border-left: 4px solid var(--qs-red);
+            }
+            .priority-item-high { border-left-color: #080808; }
+            .priority-item-medium { border-left-color: #777; }
+
+            .stButton button,
+            .stDownloadButton button {
+                min-height: 2.6rem;
+                border-radius: 10px;
+                border-color: rgba(8,8,8,0.2);
+                background: rgba(255,255,255,0.76);
+            }
+
+            .stButton button[kind="primary"],
+            .stDownloadButton button[kind="primary"] {
+                color: #fff;
+                border-color: var(--qs-red);
+                background: var(--qs-red);
+            }
+
+            [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+                color: rgba(255,255,255,0.68);
+            }
+
+            /* Ambient decoration stays static so controls and content remain the focus. */
+            .qs-cyber-background::before,
+            .qs-cyber-background::after,
+            .qs-cyber-orbit,
+            .qs-cyber-node,
+            .qs-cyber-telemetry,
+            .qs-floating-icon,
+            .qs-marquee-track,
+            .qs-flow-step:not(:last-child)::after {
+                animation: none !important;
+            }
+
+            .qs-floating-icon { display: none; }
+
+            @media (prefers-reduced-motion: reduce) {
+                *, *::before, *::after {
+                    scroll-behavior: auto !important;
+                    transition-duration: 0.01ms !important;
+                    animation-duration: 0.01ms !important;
+                    animation-iteration-count: 1 !important;
+                }
+            }
+
+            @media (max-width: 760px) {
+                .main .block-container { padding-inline: 1rem; }
+                .qs-page-header { padding: 22px 20px 24px; }
+                .qs-marquee-item { min-width: 190px; }
             }
         </style>
         """,

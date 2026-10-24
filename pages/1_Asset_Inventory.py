@@ -26,6 +26,7 @@ from qshield.models import (
     MigrationStatus, Environment, CryptoPurpose, EvidenceSource,
     VerificationStatus,
 )
+from qshield.ui import inject_styles, render_sidebar, render_page_header
 
 
 st.set_page_config(
@@ -47,6 +48,7 @@ st.markdown("""
     footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
+inject_styles()
 
 
 @st.cache_resource
@@ -64,24 +66,11 @@ def assess_assets(assets) -> None:
 
 
 # ── Sidebar ──────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("## 🛡️ Q-Shield")
-    st.markdown("*Quantum-Readiness Intelligence*")
-    st.markdown("---")
-    try:
-        st.page_link("app.py", label="📊 Overview")
-        st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-        st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-        st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-        st.page_link("pages/4_Reports.py", label="📄 Reports")
-        st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
-    except StreamlitAPIException:
-        st.caption("Use the main app to navigate between pages.")
+render_sidebar("Inventory")
 
 
 # ── Header ───────────────────────────────────────────────────────────
-st.markdown("# 📋 Cryptographic Asset Inventory")
-st.markdown("Manage your organization's cryptographic asset catalog.")
+render_page_header("Asset discovery · inventory", "Cryptographic Asset Inventory", "Manage your organization's cryptographic asset catalog.")
 
 load_col, clear_col = st.columns([1, 1])
 with load_col:
