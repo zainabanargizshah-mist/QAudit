@@ -18,6 +18,7 @@ from qshield.recommendations import generate_all_recommendations
 from qshield.reporting import generate_csv_report, generate_pdf_report
 from qshield.models import DetectionFinding, RiskScoreResult
 from qshield.inventory import export_assets_csv
+from qshield.ui import inject_styles, render_flow_map, render_page_header, render_sidebar, section_title
 
 
 st.set_page_config(
@@ -26,18 +27,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.markdown("""
-<style>
-    [data-testid="stSidebar"] { background-color: #1a1f36; }
-    [data-testid="stSidebar"] * { color: #e0e4ef !important; }
-    .demo-badge {
-        display: inline-block; background-color: #f59e0b;
-        color: #1a1f36 !important; padding: 3px 10px; border-radius: 4px;
-        font-size: 0.7rem; font-weight: 700;
-    }
-    footer { visibility: hidden; }
-</style>
-""", unsafe_allow_html=True)
+inject_styles()
 
 @st.cache_resource
 def get_database():
@@ -45,22 +35,20 @@ def get_database():
 
 db = get_database()
 
-with st.sidebar:
-    st.markdown("## 🛡️ Q-Shield")
-    st.markdown("---")
-    st.page_link("app.py", label="📊 Overview")
-    st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-    st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-    st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-    st.page_link("pages/4_Reports.py", label="📄 Reports")
-    st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
+render_sidebar("Reports")
 
 # ── Header ───────────────────────────────────────────────────────────
-st.markdown("# 📄 Reports & Exports")
-st.markdown(
-    "Generate and download assessment reports from the current data. "
-    "Reports contain decision-support findings, not compliance certifications."
+render_page_header(
+    "REPORTS",
+    "Package the posture for review",
+    "Generate exports from the current inventory and assessment state. Reports contain decision-support findings, not compliance certifications.",
 )
+render_flow_map([
+    ("N1", "Observe", "Inventory the cryptographic estate."),
+    ("N2", "Detect", "Classify vulnerable and PQC usage."),
+    ("N3", "Prioritize", "Explain what needs attention first."),
+    ("N4", "Report", "Package evidence for review."),
+])
 
 assets = db.get_all_assets()
 assessments = db.get_all_assessments()
@@ -75,7 +63,7 @@ if not assessments:
     st.stop()
 
 # ── Report Summary ───────────────────────────────────────────────────
-st.markdown("### Current Assessment Summary")
+section_title("Current assessment summary", "The report uses the current local database state and is regenerated when that state changes.")
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total Assets", stats["total_assets"])
 col2.metric("Quantum Vulnerable", stats["quantum_vulnerable"])
@@ -106,13 +94,13 @@ recs = generate_all_recommendations(assets, finding_objs, score_objs)
 now = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
 
 # ── Export Buttons ───────────────────────────────────────────────────
-st.markdown("### Available Exports")
+section_title("Available exports", "Choose the level of detail that matches your audience.")
 
 col_a, col_b, col_c = st.columns(3)
 
 # CSV Inventory
 with col_a:
-    st.markdown("#### 📋 Asset Inventory (CSV)")
+    st.markdown("#### Asset Inventory · CSV")
     st.caption("Raw inventory data with all asset fields.")
     csv_inv = export_assets_csv(db)
     st.download_button(
@@ -125,7 +113,7 @@ with col_a:
 
 # CSV Assessment
 with col_b:
-    st.markdown("#### ⚡ Assessment Results (CSV)")
+    st.markdown("#### Assessment Results · CSV")
     st.caption("Combined inventory + findings + risk scores.")
     csv_report = generate_csv_report(assets, finding_dicts, score_dicts)
     st.download_button(
@@ -138,7 +126,7 @@ with col_b:
 
 # PDF Report
 with col_c:
-    st.markdown("#### 📄 Full PDF Report")
+    st.markdown("#### Full assessment · PDF")
     st.caption("Professional report with executive summary, findings, recommendations, and methodology.")
 
     report_source = json.dumps(
@@ -176,7 +164,7 @@ with col_c:
 st.markdown("---")
 
 # ── Report Contents Preview ──────────────────────────────────────────
-st.markdown("### Report Preview")
+section_title("Report preview", "Review the narrative before downloading the final artifact.")
 
 tab1, tab2, tab3 = st.tabs(["Executive Summary", "Top Findings", "Recommendations"])
 
