@@ -1013,6 +1013,123 @@ def inject_styles() -> None:
                 .qs-page-header { padding: 22px 20px 24px; }
                 .qs-marquee-item { min-width: 190px; }
             }
+
+            /* Clear, quiet surfaces keep assessment data easy to scan. */
+            .stApp {
+                background: #f5f6f8;
+                background-image: none;
+            }
+
+            .qs-cyber-background { display: none; }
+
+            .main .block-container {
+                max-width: 1440px;
+                padding-top: 2rem;
+                padding-bottom: 3rem;
+            }
+
+            h1, h2, h3, h4 { text-transform: none; letter-spacing: normal; }
+
+            .qs-page-header {
+                margin-bottom: 1.75rem;
+                padding: 1.75rem 2rem;
+                border: 1px solid #20242b;
+                border-radius: 14px;
+                background: #20242b;
+                box-shadow: none;
+                animation: none;
+            }
+
+            .qs-page-header::after { display: none; }
+            .qs-eyebrow { letter-spacing: 0.1em; }
+            .qs-page-header h1 { font-size: clamp(1.6rem, 2.5vw, 2.1rem); letter-spacing: -0.02em; text-transform: none; }
+            .qs-page-header p { color: #d4d8df; }
+
+            .qs-card,
+            [data-testid="stMetric"],
+            div[data-testid="stDataFrame"],
+            div[data-testid="stExpander"],
+            div[data-testid="stTabs"],
+            .phase-card,
+            .priority-item {
+                border: 1px solid #e1e4e8;
+                border-radius: 12px;
+                background: #ffffff;
+                box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                animation: none;
+            }
+
+            .qs-card { padding: 1.1rem; }
+            .qs-card:hover,
+            [data-testid="stMetric"]:hover { transform: none; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06); }
+            [data-testid="stMetric"] { border-top: 1px solid #e1e4e8; }
+            [data-testid="stMetricLabel"] { color: #596273 !important; }
+            [data-testid="stMetricValue"] { font-size: 1.7rem; }
+
+            .stButton button,
+            .stDownloadButton button {
+                min-height: 2.6rem;
+                border: 1px solid #c9ced6;
+                border-radius: 8px;
+                background: #ffffff;
+                color: #20242b;
+                font-weight: 650;
+                letter-spacing: normal;
+                text-transform: none;
+                box-shadow: none;
+                transition: background 150ms ease, border-color 150ms ease;
+            }
+
+            .stButton button:hover,
+            .stDownloadButton button:hover {
+                border-color: #aeb5c0;
+                background: #f0f2f5;
+                color: #20242b;
+                box-shadow: none;
+                transform: none;
+            }
+
+            .stButton button[kind="primary"],
+            .stDownloadButton button[kind="primary"] {
+                border-color: #c51f32;
+                background: #c51f32;
+                color: #ffffff;
+            }
+
+            .stButton button[kind="primary"]:hover,
+            .stDownloadButton button[kind="primary"]:hover {
+                border-color: #a71929;
+                background: #a71929;
+                color: #ffffff;
+            }
+
+            button:focus-visible,
+            a:focus-visible,
+            input:focus-visible,
+            textarea:focus-visible,
+            [role="combobox"]:focus-visible {
+                outline: 3px solid rgba(197, 31, 50, 0.42);
+                outline-offset: 2px;
+            }
+
+            [data-testid="stSidebar"] { border-right: 1px solid #30343b; }
+            [data-testid="stSidebar"] a { transition: background 120ms ease, border-color 120ms ease; }
+            [data-testid="stSidebar"] a:hover { transform: none; }
+            [data-testid="stSidebar"] a[aria-current="page"] {
+                border-left-color: var(--qs-red);
+                background: rgba(255, 255, 255, 0.1);
+            }
+
+            .qs-flow-step,
+            .qs-flow-step:hover { transition: none; transform: none; }
+
+            @media (max-width: 760px) {
+                .main .block-container { padding-top: 1rem; padding-inline: 1rem; }
+                .qs-page-header { padding: 1.25rem; }
+                [data-testid="stMetric"] { padding: 0.85rem; }
+            }
         </style>
         """,
         unsafe_allow_html=True,

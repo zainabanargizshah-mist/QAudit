@@ -38,8 +38,6 @@ st.set_page_config(
 # ── Shared CSS (minimal repeat for page) ─────────────────────────────
 st.markdown("""
 <style>
-    [data-testid="stSidebar"] { background-color: #1a1f36; }
-    [data-testid="stSidebar"] * { color: #e0e4ef !important; }
     .demo-badge {
         display: inline-block; background-color: #f59e0b;
         color: #1a1f36 !important; padding: 3px 10px; border-radius: 4px;
@@ -72,33 +70,13 @@ render_sidebar("Inventory")
 # ── Header ───────────────────────────────────────────────────────────
 render_page_header("Asset discovery · inventory", "Cryptographic Asset Inventory", "Manage your organization's cryptographic asset catalog.")
 
-load_col, clear_col = st.columns([1, 1])
-with load_col:
-    if st.button("📥 Load Demo Data", type="primary", help="Load the bundled synthetic dataset into the inventory"):
-        demo_assets = load_demo_assets()
-        count = import_assets_to_db(db, demo_assets, source="demo_dataset")
-        assess_assets(demo_assets)
-        db.log_activity("Assessment completed", f"Assessed {count} demo assets", count)
-        st.success(f"✅ Loaded and assessed {count} demo assets.")
-        st.rerun()
-
-with clear_col:
-    if db.asset_count() and st.button("🗑️ Clear Inventory", help="Remove saved assets and assessments"):
-        st.session_state["confirm_clear_inventory"] = True
-
-if st.session_state.get("confirm_clear_inventory"):
-    st.warning("This removes all saved assets and their assessments. Uploaded files and demo data can be loaded again.")
-    confirm_col, cancel_col = st.columns(2)
-    with confirm_col:
-        if st.button("Confirm Clear Inventory", type="primary"):
-            db.delete_all_assets()
-            db.log_activity("Cleared all assets")
-            st.session_state["confirm_clear_inventory"] = False
-            st.rerun()
-    with cancel_col:
-        if st.button("Cancel"):
-            st.session_state["confirm_clear_inventory"] = False
-            st.rerun()
+if st.button("📥 Load Demo Data", type="primary", help="Load the bundled synthetic dataset into the inventory"):
+    demo_assets = load_demo_assets()
+    count = import_assets_to_db(db, demo_assets, source="demo_dataset")
+    assess_assets(demo_assets)
+    db.log_activity("Assessment completed", f"Assessed {count} demo assets", count)
+    st.success(f"✅ Loaded and assessed {count} demo assets.")
+    st.rerun()
 
 # ── Upload Section ───────────────────────────────────────────────────
 # ── Clear All Banner ─────────────────────────────────────────────────
