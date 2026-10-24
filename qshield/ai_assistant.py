@@ -19,58 +19,25 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from qshield.models import NIST_PQC_STANDARDS, DEFAULT_SCORING_CONFIG
+from qshield.models import DEFAULT_SCORING_CONFIG
+from qshield.standards import load_standards_reference, standards_reference_version
 
 
 # ── Standards Reference for Grounding ─────────────────────────────────
 
-STANDARDS_REFERENCE = {
-    "FIPS 203": {
-        "title": "ML-KEM: Module-Lattice-Based Key-Encapsulation Mechanism Standard",
-        "url": "https://csrc.nist.gov/pubs/fips/203/final",
-        "organization": "NIST",
-        "published": "2024-08-13",
-        "summary": "Specifies ML-KEM for post-quantum key encapsulation.",
-    },
-    "FIPS 204": {
-        "title": "ML-DSA: Module-Lattice-Based Digital Signature Standard",
-        "url": "https://csrc.nist.gov/pubs/fips/204/final",
-        "organization": "NIST",
-        "published": "2024-08-13",
-        "summary": "Specifies ML-DSA for post-quantum digital signatures.",
-    },
-    "FIPS 205": {
-        "title": "SLH-DSA: Stateless Hash-Based Digital Signature Standard",
-        "url": "https://csrc.nist.gov/pubs/fips/205/final",
-        "organization": "NIST",
-        "published": "2024-08-13",
-        "summary": "Specifies SLH-DSA for conservative hash-based digital signatures.",
-    },
-    "NIST IR 8547": {
-        "title": "Transition to Post-Quantum Cryptography Standards",
-        "url": "https://csrc.nist.gov/pubs/ir/8547/final",
-        "organization": "NIST",
-        "published": "2024-11-12",
-        "summary": "Guidance on transitioning from classical to post-quantum cryptographic algorithms.",
-    },
-    "CISA PQC Guidance": {
-        "title": "Post-Quantum Cryptography Initiative",
-        "url": "https://www.cisa.gov/quantum",
-        "organization": "CISA",
-        "summary": "Federal guidance on preparing for post-quantum cryptography.",
-    },
-    "OWASP Cryptographic Failures": {
-        "title": "OWASP Top 10 — A02:2021 Cryptographic Failures",
-        "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/",
-        "organization": "OWASP",
-        "summary": "Guidance on avoiding cryptographic failures in applications.",
-    },
-}
+def _reference_map() -> dict:
+    result = {}
+    for item in load_standards_reference().get("standards", []):
+        if isinstance(item, dict):
+            identifier = str(item.get("id", ""))
+            key = identifier.replace("-", " ", 1) if identifier.startswith("FIPS-") else identifier
+            result[key] = item
+    return result
 
 
 def get_standards_reference() -> Dict:
     """Return the curated standards reference set."""
-    return STANDARDS_REFERENCE
+    return _reference_map()
 
 
 class AIAssistant:
@@ -93,6 +60,8 @@ class AIAssistant:
         self.last_error = None
         self.last_notice = None
         self.last_response_from_ai = False
+        self.last_response_mode = "unavailable"
+        self.response_metadata = {}
 
     def _get_credentials(self):
         """Prefer Gemini credentials, with OpenAI retained as a fallback provider."""
@@ -135,7 +104,7 @@ class AIAssistant:
     def _build_system_prompt(self) -> str:
         refs = "\n".join([
             f"- {k}: {v['title']} ({v['url']})"
-            for k, v in STANDARDS_REFERENCE.items()
+            for k, v in _reference_map().items()
         ])
         return f"""You are Q-Shield AI, a cybersecurity expert assistant specializing in
 post-quantum cryptography (PQC) migration planning. You help enterprise
@@ -171,7 +140,7 @@ Risk scoring methodology uses these weights:
 
 Scores are decision-support estimates (0-100), NOT certified ratings."""
 
-    def query(self, prompt: str, context: str = "") -> str:
+    def query(self, prompt: str, context: str = "", allow_external: bool = True) -> str:
         """
         Query the AI assistant. Returns a response string.
         Falls back to rule-based response if AI unavailable.
@@ -179,14 +148,26 @@ Scores are decision-support estimates (0-100), NOT certified ratings."""
         self.last_error = None
         self.last_notice = None
         self.last_response_from_ai = False
+        self.last_response_mode = "unavailable"
+        self.response_metadata = {
+            "standards_reference_version": standards_reference_version(),
+            "provider": self.provider_name,
+            "model": self.model,
+        }
+        if self.available and not allow_external:
+            self.last_error = "External AI use was not approved for this question."
+            self.last_response_mode = "rule-based guidance"
+            return "[Rule-based guidance — external AI consent was not granted]\n\n" + self._fallback_response(prompt)
         if not self.available:
             self.last_error = "No AI provider is configured."
-            return self._fallback_response(prompt)
+            self.last_response_mode = "rule-based guidance"
+            return "[Rule-based guidance — no external AI provider was used]\n\n" + self._fallback_response(prompt)
 
         client = self._get_client()
         if not client:
             self.last_error = "The AI client could not be initialized. Check the installed provider package."
-            return self._fallback_response(prompt)
+            self.last_response_mode = "rule-based guidance"
+            return "[Rule-based guidance — provider unavailable]\n\n" + self._fallback_response(prompt)
 
         user_content = ""
         if context:
@@ -237,6 +218,7 @@ Scores are decision-support estimates (0-100), NOT certified ratings."""
             if not result:
                 raise ValueError("The AI provider returned an empty response")
             self.last_response_from_ai = True
+            self.last_response_mode = f"{self.provider}-generated advisory"
             return (
                 result + "\n\n---\n*⚠️ AI-generated recommendation — "
                 "requires review by qualified security professionals.*"
@@ -261,6 +243,7 @@ Scores are decision-support estimates (0-100), NOT certified ratings."""
                 )
             else:
                 self.last_error = f"The AI request failed ({error_type})."
+            self.last_response_mode = "rule-based guidance"
             return (
                 f"AI assistant could not complete the request ({error_type}); "
                 f"showing rule-based guidance instead.\n\n"

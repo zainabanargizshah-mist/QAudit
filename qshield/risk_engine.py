@@ -16,6 +16,48 @@ from qshield.models import (
 )
 
 
+SCORE_CONFIG_VERSION = "planning-priority-v2"
+
+
+def validate_scoring_config(config: dict) -> None:
+    """Validate weights and continuous risk-band boundaries."""
+    weights = config.get("weights", {})
+    required = {
+        "crypto_exposure", "data_sensitivity_retention", "business_criticality",
+        "internet_exposure", "dependency_complexity", "evidence_confidence",
+    }
+    missing = required - set(weights)
+    if missing:
+        raise ValueError(f"Scoring configuration is missing weights: {sorted(missing)}")
+    total = sum(float(value) for value in weights.values())
+    if abs(total - 1.0) > 1e-9:
+        raise ValueError(f"Scoring weights must sum to 1.0, got {total:.6f}")
+    bands = config.get("risk_bands", {})
+    previous = 0.0
+    for level in ("Low", "Medium", "High", "Critical"):
+        if level not in bands:
+            raise ValueError(f"Risk bands are missing {level}")
+        low, high = bands[level]
+        if float(low) != previous or float(high) <= float(low):
+            raise ValueError(f"Risk band {level} is not continuous")
+        previous = float(high)
+    if previous != 100.0:
+        raise ValueError("Risk bands must end at 100")
+
+
+def risk_level_for_score(score: float, bands: dict) -> str:
+    """Classify a score with half-open intervals and an inclusive 100 ceiling."""
+    for level, (low, high) in (
+        ("Low", bands["Low"]),
+        ("Medium", bands["Medium"]),
+        ("High", bands["High"]),
+        ("Critical", bands["Critical"]),
+    ):
+        if (low <= score < high) or (level == "Critical" and low <= score <= high):
+            return level
+    return "Unknown"
+
+
 def compute_risk_score(
     asset: dict,
     finding: DetectionFinding,
@@ -26,6 +68,7 @@ def compute_risk_score(
     detection finding.
     """
     cfg = config or DEFAULT_SCORING_CONFIG
+    validate_scoring_config(cfg)
     weights = cfg["weights"]
     bands = cfg["risk_bands"]
 
@@ -65,11 +108,7 @@ def compute_risk_score(
 
     # ── Determine risk level ─────────────────────────────────────────
 
-    risk_level = "Unknown"
-    for level, (low, high) in bands.items():
-        if low <= total <= high:
-            risk_level = level
-            break
+    risk_level = risk_level_for_score(total, bands)
 
     # ── Build breakdown ──────────────────────────────────────────────
 
@@ -117,6 +156,7 @@ def compute_risk_score(
         explanation=explanation,
         suggested_actions=actions,
         needs_review=needs_review,
+        score_config_version=cfg.get("version", SCORE_CONFIG_VERSION),
     )
 
 
@@ -225,7 +265,7 @@ def _build_explanation(
 ) -> str:
     """Build a plain-language explanation of the risk score."""
     parts = [
-        f"Risk score: {total}/100 ({risk_level}).",
+        f"Migration priority score: {total}/100 ({risk_level}).",
     ]
 
     if finding.is_quantum_vulnerable:

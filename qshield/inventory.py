@@ -204,6 +204,12 @@ def import_assets_to_db(
     db: Database, assets: List[CryptographicAsset], source: str = "upload"
 ) -> int:
     """Import assets into the database and log the activity."""
+    source_key = "json_upload" if str(source).lower().endswith(".json") else "csv_upload"
+    if source == "demo_dataset":
+        source_key = "demo_dataset"
+    for asset in assets:
+        if not asset.evidence_source or asset.evidence_source == "manual":
+            asset.evidence_source = source_key
     count = db.upsert_assets(assets)
     db.log_activity(
         action=f"Imported {count} assets",

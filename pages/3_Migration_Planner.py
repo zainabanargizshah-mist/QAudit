@@ -8,6 +8,7 @@ framework, and allows migration status tracking.
 import streamlit as st
 import pandas as pd
 import json
+from streamlit.errors import StreamlitAPIException
 
 from qshield.database import Database
 from qshield.detection import analyze_asset
@@ -15,7 +16,7 @@ from qshield.risk_engine import compute_risk_score
 from qshield.recommendations import (
     generate_all_recommendations, get_migration_phases,
 )
-from qshield.models import MigrationStatus, NIST_PQC_STANDARDS, DetectionFinding, RiskScoreResult
+from qshield.models import MigrationStatus, NIST_PQC_STANDARDS, DetectionFinding, RiskScoreResult, CryptographicAsset
 from qshield.ai_assistant import AIAssistant
 
 
@@ -58,12 +59,15 @@ db = get_database()
 with st.sidebar:
     st.markdown("## 🛡️ Q-Shield")
     st.markdown("---")
-    st.page_link("app.py", label="📊 Overview")
-    st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-    st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-    st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-    st.page_link("pages/4_Reports.py", label="📄 Reports")
-    st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
+    try:
+        st.page_link("app.py", label="📊 Overview")
+        st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
+        st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
+        st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
+        st.page_link("pages/4_Reports.py", label="📄 Reports")
+        st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
+    except StreamlitAPIException:
+        st.caption("Use the main app to navigate between pages.")
 
 # ── Header ───────────────────────────────────────────────────────────
 st.markdown("# 🗺️ PQC Migration Planner")
@@ -152,6 +156,7 @@ for rec in filtered_recs:
     with st.expander(
         f"{icon} {rec['asset_name']} — {priority} ({rec.get('risk_score', 0)}/100) "
         f"· Status: {rec.get('migration_status', 'N/A')}"
+        f" · Verification: {asset_map.get(aid, {}).get('verification_status', 'unverified')}"
         f"{'  ⚠️ REVIEW' if rec.get('needs_review') else ''}",
     ):
         mc1, mc2 = st.columns([3, 2])
@@ -206,6 +211,9 @@ for rec in filtered_recs:
 
             if rec.get("needs_review"):
                 st.warning("⚠️ Requires manual review before action.")
+            if rec.get("blockers"):
+                st.warning("Blockers: " + " · ".join(rec["blockers"]))
+            st.caption("Planning guidance only. Confirm assumptions, dependencies, and implementation evidence before approval.")
 
 st.markdown("---")
 
@@ -214,7 +222,7 @@ st.markdown("### 🤖 AI Migration Assistant")
 
 ai = AIAssistant()
 if ai.is_available():
-    st.success(f"✅ {ai.provider_name} is configured · `{ai.model}`")
+    st.success(f"✅ {ai.provider_name} is configured · `{ai.model}` · responses are advisory")
 else:
     st.info(
         "💡 AI assistant is not configured. Rule-based recommendations are active. "
@@ -251,6 +259,11 @@ st.caption(
     "anonymized assessment summary. Asset names, IDs, owners, notes, and raw uploads are excluded."
 )
 
+allow_external_ai = st.checkbox(
+    "Allow this limited anonymized summary to be sent to the configured AI provider",
+    value=False,
+)
+
 prompt_options = [
     "Generate an executive summary of this assessment",
     "Summarize the highest-priority assets for migration",
@@ -265,7 +278,7 @@ custom_prompt = st.text_input("Or enter a custom question:", placeholder="Ask ab
 if st.button("🤖 Ask AI Assistant", type="primary"):
     prompt = custom_prompt if custom_prompt else selected_prompt
     with st.spinner("Analyzing..."):
-        response = ai.query(prompt, context=context_summary)
+        response = ai.query(prompt, context=context_summary, allow_external=allow_external_ai)
     if ai.last_notice:
         st.info(ai.last_notice)
     if ai.last_error:
@@ -273,4 +286,8 @@ if st.button("🤖 Ask AI Assistant", type="primary"):
             f"AI-generated analysis is unavailable for this request. {ai.last_error} "
             "The response below is rule-based guidance, not a custom AI migration plan."
         )
+    st.caption(
+        f"Response mode: {ai.last_response_mode} · standards reference: "
+        f"{ai.response_metadata.get('standards_reference_version', 'unknown')}"
+    )
     st.markdown(response)

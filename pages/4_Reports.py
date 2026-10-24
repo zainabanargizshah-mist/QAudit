@@ -10,6 +10,7 @@ import pandas as pd
 import hashlib
 import json
 from datetime import datetime, timezone
+from streamlit.errors import StreamlitAPIException
 
 from qshield.database import Database
 from qshield.detection import analyze_asset
@@ -48,12 +49,15 @@ db = get_database()
 with st.sidebar:
     st.markdown("## 🛡️ Q-Shield")
     st.markdown("---")
-    st.page_link("app.py", label="📊 Overview")
-    st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-    st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-    st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-    st.page_link("pages/4_Reports.py", label="📄 Reports")
-    st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
+    try:
+        st.page_link("app.py", label="📊 Overview")
+        st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
+        st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
+        st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
+        st.page_link("pages/4_Reports.py", label="📄 Reports")
+        st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
+    except StreamlitAPIException:
+        st.caption("Use the main app to navigate between pages.")
 
 # ── Header ───────────────────────────────────────────────────────────
 st.markdown("# 📄 Reports & Exports")
@@ -81,6 +85,9 @@ col1.metric("Total Assets", stats["total_assets"])
 col2.metric("Quantum Vulnerable", stats["quantum_vulnerable"])
 col3.metric("High Priority", stats["high_priority"])
 col4.metric("Needs Review", stats["needs_review"])
+stale_count = stats.get("stale_assessments", 0)
+if stale_count:
+    st.warning(f"{stale_count} assessment(s) are stale and should be rerun before this report is treated as current.")
 
 st.markdown("---")
 
@@ -185,8 +192,8 @@ with tab1:
     st.markdown(f"""
     **Assessment Date:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}
 
-    **Scope:** {stats['total_assets']} cryptographic assets assessed across
-    the organization's technology estate.
+    **Scope:** {stats['total_assets']} declared cryptographic asset records in
+    the local inventory. This report does not discover or verify runtime usage.
 
     **Key Findings:**
     - **{stats['quantum_vulnerable']}** assets use cryptographic algorithms
@@ -197,6 +204,8 @@ with tab1:
       post-quantum cryptographic algorithms.
     - **{stats['needs_review']}** assets require manual review due to
       insufficient evidence for automated classification.
+    - **{stats.get('stale_assessments', 0)}** stored assessments are stale because
+      their source inventory changed after assessment.
 
     **Risk Summary:**
     The assessment identifies assets using public-key cryptography that may

@@ -9,10 +9,10 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from streamlit.errors import StreamlitAPIException
 
 from qshield.database import Database
-from qshield.detection import analyze_asset
-from qshield.risk_engine import compute_risk_score
+from qshield.assessment import assess_asset
 from qshield.models import DEFAULT_SCORING_CONFIG
 
 
@@ -48,12 +48,15 @@ db = get_database()
 with st.sidebar:
     st.markdown("## 🛡️ Q-Shield")
     st.markdown("---")
-    st.page_link("app.py", label="📊 Overview")
-    st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-    st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-    st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-    st.page_link("pages/4_Reports.py", label="📄 Reports")
-    st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
+    try:
+        st.page_link("app.py", label="📊 Overview")
+        st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
+        st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
+        st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
+        st.page_link("pages/4_Reports.py", label="📄 Reports")
+        st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
+    except StreamlitAPIException:
+        st.caption("Use the main app to navigate between pages.")
 
 # ── Header ───────────────────────────────────────────────────────────
 st.markdown("# ⚡ Risk Assessment")
@@ -74,9 +77,7 @@ with col_run:
     if st.button("🔄 Run Assessment", type="primary", use_container_width=True):
         progress = st.progress(0, text="Analyzing assets...")
         for i, asset in enumerate(assets):
-            finding = analyze_asset(asset)
-            score = compute_risk_score(asset, finding)
-            db.save_assessment(asset["asset_id"], finding.to_dict(), score.to_dict())
+            assess_asset(db, asset)
             progress.progress((i + 1) / len(assets), text=f"Analyzing {asset['asset_name']}...")
         db.log_activity("Assessment completed", f"Assessed {len(assets)} assets", len(assets))
         progress.empty()
@@ -168,6 +169,7 @@ for assessment in filtered:
             st.markdown(f"**Purpose:** {asset.get('cryptographic_purpose', 'N/A')}")
             st.markdown(f"**Protocol:** {asset.get('protocol', 'N/A')}")
             st.markdown(f"**Environment:** {asset.get('environment', 'N/A')}")
+            st.markdown(f"**Evidence source:** {asset.get('evidence_source', 'manual')}")
 
             st.markdown("---")
 
@@ -193,10 +195,16 @@ for assessment in filtered:
             if finding.get("recommendation"):
                 st.info(f"💡 **Recommendation:** {finding['recommendation']}")
 
+            if assessment.get("assessment_status") == "stale":
+                st.error("This assessment is stale because the inventory changed. Run the assessment again before using the result.")
+
         with dcol2:
             st.markdown("##### Risk Score Breakdown")
             st.markdown(f"### {risk_score}/100")
-            st.markdown(f"**Level:** {risk_level}")
+            st.markdown(
+                f"**Level:** {risk_level} · **Assessment:** "
+                f"{assessment.get('assessment_status', 'current')}"
+            )
 
             breakdown = score_data.get("breakdown", {})
             if breakdown:

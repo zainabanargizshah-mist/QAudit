@@ -109,7 +109,20 @@ def generate_recommendation(
         "dependencies": f"{asset.get('dependency_count', 0)} dependent systems identified",
         "validation_requirements": [],
         "testing_requirements": [],
+        "assumptions": [
+            "The algorithm and purpose are based on the recorded inventory declaration.",
+            "No runtime or protocol scan has independently verified the declaration.",
+        ],
+        "blockers": [],
+        "guidance_status": "planning guidance",
     }
+
+    if finding.needs_review or finding.purpose in ("", "Unknown", "unknown"):
+        rec["blockers"].append("Confirm the exact algorithm, purpose, and parameter set before selecting a target.")
+    if finding.classical_status in ("broken", "deprecated"):
+        rec["blockers"].append("Address the classical weakness independently of the quantum migration decision.")
+    if not asset.get("owner"):
+        rec["blockers"].append("Assign an accountable asset owner.")
 
     # Determine target based on purpose
     if finding.is_quantum_vulnerable:
@@ -182,6 +195,8 @@ def generate_recommendation(
         rec["validation_requirements"] = [
             "Full cryptographic inventory verification.",
         ]
+        rec["target_standard"] = "Determine after evidence review"
+        rec["target_algorithm"] = "Conditional on verified purpose"
 
     else:
         # Symmetric / hash — no PQC migration needed

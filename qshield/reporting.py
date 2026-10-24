@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Optional
 
 from qshield.models import NIST_PQC_STANDARDS, DEFAULT_SCORING_CONFIG
+from qshield.standards import standards_reference_version
 
 
 def generate_csv_report(
@@ -29,7 +30,9 @@ def generate_csv_report(
         "Business Criticality", "Internet Exposed", "Dependency Count",
         "Migration Status", "Risk Score", "Risk Level",
         "Quantum Vulnerable", "PQC Algorithm", "Needs Review",
-        "Vulnerability Type", "Evidence", "Recommendation",
+        "Vulnerability Type", "Evidence", "Recommendation", "Evidence Source",
+        "Verification Status", "Assessment Status", "Detector Version",
+        "Score Config Version", "Standards Reference Version",
     ])
 
     finding_map = {f.get("asset_id", ""): f for f in findings}
@@ -40,7 +43,7 @@ def generate_csv_report(
         f = finding_map.get(aid, {})
         s = score_map.get(aid, {})
 
-        writer.writerow([
+        writer.writerow([_csv_safe(value) for value in [
             aid,
             asset.get("asset_name", ""),
             asset.get("asset_type", ""),
@@ -62,9 +65,23 @@ def generate_csv_report(
             f.get("vulnerability_type", ""),
             f.get("evidence", ""),
             f.get("recommendation", ""),
-        ])
+            asset.get("evidence_source", "manual"),
+            asset.get("verification_status", "unverified"),
+            s.get("assessment_status", "current"),
+            f.get("detector_version", ""),
+            s.get("score_config_version", ""),
+            s.get("standards_reference_version", ""),
+        ]])
 
     return output.getvalue()
+
+
+def _csv_safe(value) -> str:
+    """Prevent spreadsheet formula execution in exported text cells."""
+    text = "" if value is None else str(value)
+    if text.startswith(("=", "+", "-", "@")):
+        return "'" + text
+    return text
 
 
 def generate_pdf_report(
@@ -167,7 +184,7 @@ def generate_pdf_report(
         pdf.cell(width, 4, _safe_str(label.upper()))
         pdf.set_xy(x, y + 5)
         pdf.set_text_color(*ink)
-        pdf.set_font("Helvetica", "B", value_size)
+        pdf.set_font("Helvetica", "B", int(value_size))
         pdf.multi_cell(width, 4.5, _safe_str(value or "Not recorded"))
 
     def key_value(label, value, indent=0, value_color=ink):
@@ -240,7 +257,8 @@ def generate_pdf_report(
     pdf.multi_cell(0, 5, _safe_str(
         f"This report contains {len(assessed)} assessed asset records from an inventory of {len(assets)}. "
         f"{quantum_vulnerable} assessed assets are flagged as quantum-vulnerable, {pqc_assets} use a PQC algorithm, "
-        f"and {needs_review} require manual review. {high_priority} are rated Critical or High by the stored risk score."
+        f"and {needs_review} require manual review. {high_priority} are rated Critical or High by the stored migration-priority heuristic. "
+        f"{summary_stats.get('stale_assessments', 0)} assessment records are stale."
     ))
 
     # Risk distribution chart (counts are exactly the included assessment rows).
@@ -368,7 +386,7 @@ def generate_pdf_report(
             x = 98 + i * 32
             pdf.set_xy(x, 47)
             pdf.set_text_color(*(teal if active and label == "PQC IN USE" else color if active else muted))
-            pdf.set_font("Helvetica", "B", 5.5)
+            pdf.set_font("Helvetica", "B", 5)
             pdf.multi_cell(28, 3, label, align="C")
             pdf.set_xy(x, 55)
             pdf.set_font("Helvetica", "B", 8)
@@ -430,11 +448,11 @@ def generate_pdf_report(
             y = pdf.get_y()
             pdf.set_xy(14, y)
             pdf.set_text_color(*ink)
-            pdf.set_font("Helvetica", "", 6.5)
+            pdf.set_font("Helvetica", "", 6)
             pdf.cell(45, 5, _safe_str(factor.replace("_", " ").title()))
             pdf.set_xy(59, y)
             pdf.cell(27, 5, f"{raw:.0%} x {weight:.0%}", align="R")
-            chart_bar(89, y + 0.7, 76, contribution, 30, teal, 3.5)
+            chart_bar(89, y + 0.7, 76, contribution, 30, teal, 3)
             pdf.set_xy(168, y)
             pdf.set_font("Helvetica", "B", 7)
             pdf.cell(28, 5, f"{contribution:.1f}", align="R")
@@ -526,6 +544,10 @@ def generate_pdf_report(
     pdf.set_text_color(*ink)
     pdf.set_font("Helvetica", "", 9)
     pdf.multi_cell(0, 5, _safe_str(DEFAULT_SCORING_CONFIG["disclaimer"]))
+    pdf.set_text_color(*muted)
+    pdf.set_font("Helvetica", "", 7)
+    pdf.set_x(14)
+    pdf.multi_cell(182, 4, _safe_str(f"Detector: rule-engine-v2  |  Score configuration: {DEFAULT_SCORING_CONFIG.get('version', 'unknown')}  |  Standards reference: {standards_reference_version()}"))
     pdf.ln(3)
     pdf.set_text_color(*navy)
     pdf.set_font("Helvetica", "B", 10)

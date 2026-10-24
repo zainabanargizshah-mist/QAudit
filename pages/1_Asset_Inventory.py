@@ -8,12 +8,14 @@ import streamlit as st
 import pandas as pd
 import io
 import json
+from streamlit.errors import StreamlitAPIException
 
 from qshield.database import Database
 from qshield.inventory import (
     load_demo_assets, import_assets_to_db, get_assets_dataframe,
     export_assets_csv,
 )
+from qshield.assessment import assess_asset
 from qshield.validation import (
     validate_file_upload, validate_dataframe, validate_single_asset,
     sanitize_text, MAX_UPLOAD_MB,
@@ -21,10 +23,9 @@ from qshield.validation import (
 from qshield.models import (
     ASSET_FIELDS, CryptographicAsset,
     AssetType, DataSensitivity, BusinessCriticality,
-    MigrationStatus, Environment, CryptoPurpose,
+    MigrationStatus, Environment, CryptoPurpose, EvidenceSource,
+    VerificationStatus,
 )
-from qshield.detection import analyze_asset
-from qshield.risk_engine import compute_risk_score
 
 
 st.set_page_config(
@@ -55,17 +56,27 @@ def get_database():
 db = get_database()
 
 
+def assess_assets(assets) -> None:
+    """Assess assets through the shared pipeline, including structured usages."""
+    for asset in assets:
+        data = asset.to_dict() if hasattr(asset, "to_dict") else asset
+        assess_asset(db, data)
+
+
 # ── Sidebar ──────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🛡️ Q-Shield")
     st.markdown("*Quantum-Readiness Intelligence*")
     st.markdown("---")
-    st.page_link("app.py", label="📊 Overview")
-    st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-    st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-    st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-    st.page_link("pages/4_Reports.py", label="📄 Reports")
-    st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
+    try:
+        st.page_link("app.py", label="📊 Overview")
+        st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
+        st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
+        st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
+        st.page_link("pages/4_Reports.py", label="📄 Reports")
+        st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
+    except StreamlitAPIException:
+        st.caption("Use the main app to navigate between pages.")
 
 
 # ── Header ───────────────────────────────────────────────────────────
@@ -77,11 +88,7 @@ with load_col:
     if st.button("📥 Load Demo Data", type="primary", help="Load the bundled synthetic dataset into the inventory"):
         demo_assets = load_demo_assets()
         count = import_assets_to_db(db, demo_assets, source="demo_dataset")
-        for asset in demo_assets:
-            asset_data = asset.to_dict()
-            finding = analyze_asset(asset_data)
-            score = compute_risk_score(asset_data, finding)
-            db.save_assessment(asset_data["asset_id"], finding.to_dict(), score.to_dict())
+        assess_assets(demo_assets)
         db.log_activity("Assessment completed", f"Assessed {count} demo assets", count)
         st.success(f"✅ Loaded and assessed {count} demo assets.")
         st.rerun()
@@ -167,23 +174,29 @@ with st.expander("📤 Upload Assets (CSV or JSON)", expanded=True):
 
             if assets:
                 st.info(f"✅ **{len(assets)} valid assets** ready to import.")
+                existing_ids = {asset["asset_id"] for asset in db.get_all_assets()}
+                conflicts = [asset.asset_id for asset in assets if asset.asset_id in existing_ids]
+                if conflicts and not replace_existing:
+                    st.warning(
+                        f"{len(conflicts)} existing asset ID(s) will be updated: "
+                        f"{', '.join(conflicts[:8])}{'…' if len(conflicts) > 8 else ''}"
+                    )
                 if replace_existing:
                     st.warning(f"⚠️ This will first delete all {db.asset_count()} existing assets, then import {len(assets)} new ones.")
 
                 if st.button("⬆️ Import & Run Risk Assessment", type="primary"):
-                    if replace_existing:
-                        deleted = db.delete_all_assets()
-                        db.log_activity("Cleared inventory before import", f"Deleted {deleted} assets")
-
-                    count = import_assets_to_db(db, assets, source=uploaded.name)
+                    count = db.upsert_assets(assets, replace_existing=replace_existing)
+                    db.log_activity(
+                        "Replaced inventory" if replace_existing else "Imported assets",
+                        f"Source: {uploaded.name}",
+                        count,
+                    )
 
                     # Auto-run risk assessment on every imported asset
                     progress = st.progress(0, text="Running risk assessment...")
                     for i, asset in enumerate(assets):
                         d = asset.to_dict()
-                        finding = analyze_asset(d)
-                        score = compute_risk_score(d, finding)
-                        db.save_assessment(d["asset_id"], finding.to_dict(), score.to_dict())
+                        assess_asset(db, d)
                         progress.progress((i + 1) / len(assets), text=f"Assessing {d['asset_id']}...")
 
                     progress.empty()
@@ -266,6 +279,7 @@ display_cols = [
     "asset_id", "asset_name", "asset_type", "cryptographic_algorithm",
     "cryptographic_purpose", "environment", "data_sensitivity",
     "business_criticality", "internet_exposed", "migration_status",
+    "evidence_source", "verification_status",
 ]
 display = filtered[[c for c in display_cols if c in filtered.columns]]
 
@@ -279,6 +293,51 @@ st.dataframe(
         "internet_exposed": st.column_config.CheckboxColumn("Internet", width="small"),
     },
 )
+
+with st.expander("Structured cryptographic usages", expanded=False):
+    st.caption(
+        "Use this when one asset contains several cryptographic mechanisms, "
+        "such as AES for bulk encryption plus RSA for key wrapping."
+    )
+    usage_asset_id = st.selectbox("Asset", filtered["asset_id"].tolist(), key="usage_asset_select")
+    existing_usages = db.get_crypto_usages(usage_asset_id)
+    if existing_usages:
+        st.dataframe(
+            pd.DataFrame(existing_usages)[[
+                "usage_id", "algorithm", "purpose", "key_size_or_parameter_set",
+                "protocol_or_location", "evidence_source", "observation_status",
+            ]],
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("No structured usage records yet. The legacy algorithm field remains available for compatibility.")
+    with st.form("crypto_usage_form"):
+        usage_col1, usage_col2 = st.columns(2)
+        with usage_col1:
+            usage_algorithm = st.text_input("Algorithm", placeholder="RSA-2048")
+            usage_purpose = st.selectbox("Purpose", [entry.value for entry in CryptoPurpose], key="usage_purpose")
+            usage_parameters = st.text_input("Key size / parameter set", placeholder="2048 or ML-KEM-768")
+        with usage_col2:
+            usage_location = st.text_input("Protocol or location", placeholder="TLS key exchange / KMS key wrapping")
+            usage_source = st.selectbox("Evidence source", [entry.value for entry in EvidenceSource], key="usage_source")
+            usage_status = st.selectbox("Observation status", [entry.value for entry in VerificationStatus], key="usage_status")
+        if st.form_submit_button("Add usage", type="primary"):
+            if not usage_algorithm.strip():
+                st.error("Algorithm is required for a structured usage.")
+            else:
+                db.upsert_crypto_usage(usage_asset_id, {
+                    "algorithm": sanitize_text(usage_algorithm),
+                    "purpose": usage_purpose,
+                    "key_size_or_parameter_set": sanitize_text(usage_parameters),
+                    "protocol_or_location": sanitize_text(usage_location),
+                    "evidence_source": usage_source,
+                    "observation_status": usage_status,
+                    "evidence_confidence": "high" if usage_status == "verified" else "low",
+                })
+                db.log_activity("Added cryptographic usage", f"Asset: {usage_asset_id}")
+                st.success("Structured usage added. Re-run assessment before relying on the result.")
+                st.rerun()
 
 # ── Export ────────────────────────────────────────────────────────────
 export_col1, export_col2 = st.columns([1, 5])
@@ -319,6 +378,10 @@ with tab_add:
             new_deps = st.number_input("Dependencies", 0, 100, 0)
             new_status = st.selectbox("Migration Status", [e.value for e in MigrationStatus])
             new_notes = st.text_area("Notes", height=80)
+            new_source = st.selectbox("Evidence source", [entry.value for entry in EvidenceSource], index=0)
+            new_purpose_confidence = st.selectbox("Purpose confidence", ["high", "medium", "low"], index=2)
+            new_verification = st.selectbox("Verification status", [entry.value for entry in VerificationStatus], index=0)
+            new_evidence_ref = st.text_input("Evidence reference", placeholder="Ticket, scan, or document reference")
 
         if st.form_submit_button("Add Asset", type="primary"):
             data = {
@@ -339,6 +402,11 @@ with tab_add:
                 "dependency_count": new_deps,
                 "migration_status": new_status,
                 "notes": sanitize_text(new_notes),
+                "evidence_source": new_source,
+                "purpose_source": "manual",
+                "purpose_confidence": new_purpose_confidence,
+                "verification_status": new_verification,
+                "evidence_reference": sanitize_text(new_evidence_ref),
             }
             ok, issues = validate_single_asset(data)
             if not ok:
@@ -347,9 +415,7 @@ with tab_add:
             else:
                 asset = CryptographicAsset.from_dict(data)
                 db.upsert_asset(asset)
-                finding = analyze_asset(data)
-                score = compute_risk_score(data, finding)
-                db.save_assessment(data["asset_id"], finding.to_dict(), score.to_dict())
+                assess_asset(db, data)
                 db.log_activity("Added asset", f"{data['asset_id']}: {data['asset_name']}")
                 st.success(f"✅ Added asset {data['asset_id']}")
                 st.rerun()
@@ -384,6 +450,16 @@ with tab_edit:
                     ed_notes = st.text_area("Notes", value=existing.get("notes", ""))
                     ed_exposed = st.checkbox("Internet Exposed", value=bool(existing.get("internet_exposed")))
                     ed_deps = st.number_input("Dependencies", 0, 100, int(existing.get("dependency_count", 0)))
+                    ed_source = st.selectbox(
+                        "Evidence source", [entry.value for entry in EvidenceSource],
+                        index=[entry.value for entry in EvidenceSource].index(existing.get("evidence_source", "manual"))
+                        if existing.get("evidence_source", "manual") in [entry.value for entry in EvidenceSource] else 0,
+                    )
+                    ed_verification = st.selectbox(
+                        "Verification status", [entry.value for entry in VerificationStatus],
+                        index=[entry.value for entry in VerificationStatus].index(existing.get("verification_status", "unverified"))
+                        if existing.get("verification_status", "unverified") in [entry.value for entry in VerificationStatus] else 0,
+                    )
 
                 if st.form_submit_button("Update Asset", type="primary"):
                     existing["asset_name"] = sanitize_text(ed_name)
@@ -394,11 +470,11 @@ with tab_edit:
                     existing["notes"] = sanitize_text(ed_notes)
                     existing["internet_exposed"] = ed_exposed
                     existing["dependency_count"] = ed_deps
+                    existing["evidence_source"] = ed_source
+                    existing["verification_status"] = ed_verification
                     asset = CryptographicAsset.from_dict(existing)
                     db.upsert_asset(asset)
-                    finding = analyze_asset(existing)
-                    score = compute_risk_score(existing, finding)
-                    db.save_assessment(edit_id, finding.to_dict(), score.to_dict())
+                    assess_asset(db, existing)
                     db.log_activity("Updated asset", f"{edit_id}")
                     st.success(f"✅ Updated {edit_id}")
                     st.rerun()

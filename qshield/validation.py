@@ -11,6 +11,7 @@ import io
 import json
 import os
 import re
+from datetime import date
 from typing import List, Tuple, Dict, Any, Optional
 
 import pandas as pd
@@ -83,10 +84,23 @@ def validate_dataframe(df: pd.DataFrame) -> Tuple[List[CryptographicAsset], List
     valid_assets = []
     errors = []
 
+    seen_ids = {}
     for idx, row in df.iterrows():
         row_num = idx + 2  # Account for 1-indexed + header
         row_dict = row.to_dict()
         row_errors = _validate_row(row_dict, row_num)
+
+        asset_id = str(row_dict.get("asset_id", "") or "").strip()
+        if asset_id:
+            if asset_id in seen_ids:
+                row_errors.append({
+                    "row": row_num,
+                    "field": "asset_id",
+                    "value": asset_id,
+                    "message": f"Duplicate asset_id '{asset_id}' also appears on row {seen_ids[asset_id]}.",
+                })
+            else:
+                seen_ids[asset_id] = row_num
 
         if row_errors:
             errors.extend(row_errors)
@@ -103,7 +117,7 @@ def _validate_row(row: dict, row_num: int) -> List[Dict]:
 
     # Check required fields
     for field_name in REQUIRED_FIELDS:
-        val = row.get(field_name, "").strip()
+        val = str(row.get(field_name, "") or "").strip()
         if not val:
             errors.append({
                 "row": row_num,
@@ -153,6 +167,36 @@ def _validate_row(row: dict, row_num: int) -> List[Dict]:
                     "message": f"'{num_field}' must be a number."
                 })
 
+    enum_fields = {
+        "asset_type": AssetType,
+        "data_sensitivity": DataSensitivity,
+        "business_criticality": BusinessCriticality,
+        "migration_status": MigrationStatus,
+        "environment": Environment,
+        "cryptographic_purpose": CryptoPurpose,
+    }
+    for field_name, enum_type in enum_fields.items():
+        value = str(row.get(field_name, "") or "").strip()
+        if value and value not in {entry.value for entry in enum_type}:
+            errors.append({
+                "row": row_num,
+                "field": field_name,
+                "value": value,
+                "message": f"'{field_name}' must be one of: {', '.join(entry.value for entry in enum_type)}.",
+            })
+
+    expiry = str(row.get("certificate_expiry", "") or "").strip()
+    if expiry:
+        try:
+            date.fromisoformat(expiry)
+        except ValueError:
+            errors.append({
+                "row": row_num,
+                "field": "certificate_expiry",
+                "value": expiry,
+                "message": "'certificate_expiry' must use ISO format YYYY-MM-DD.",
+            })
+
     # Validate asset_id uniqueness is handled at the database level
 
     return errors
@@ -170,6 +214,34 @@ def validate_single_asset(data: dict) -> Tuple[bool, List[str]]:
             issues.append(f"'{f}' is too long (max {MAX_FIELD_LENGTH} chars).")
         if isinstance(v, str) and DANGEROUS_PATTERNS.search(v):
             issues.append(f"'{f}' contains unsafe characters.")
+
+    enum_fields = {
+        "asset_type": AssetType,
+        "data_sensitivity": DataSensitivity,
+        "business_criticality": BusinessCriticality,
+        "migration_status": MigrationStatus,
+        "environment": Environment,
+        "cryptographic_purpose": CryptoPurpose,
+    }
+    for field_name, enum_type in enum_fields.items():
+        value = str(data.get(field_name, "") or "").strip()
+        if value and value not in {entry.value for entry in enum_type}:
+            issues.append(f"'{field_name}' has an unsupported value.")
+
+    for field_name in ("data_retention_years", "dependency_count"):
+        value = data.get(field_name, "")
+        try:
+            if value != "" and int(float(str(value))) < 0:
+                issues.append(f"'{field_name}' must be non-negative.")
+        except (TypeError, ValueError):
+            issues.append(f"'{field_name}' must be a number.")
+
+    expiry = str(data.get("certificate_expiry", "") or "").strip()
+    if expiry:
+        try:
+            date.fromisoformat(expiry)
+        except ValueError:
+            issues.append("'certificate_expiry' must use ISO format YYYY-MM-DD.")
 
     return len(issues) == 0, issues
 

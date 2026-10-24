@@ -12,7 +12,22 @@ and NIST guidance.
 """
 
 from typing import Dict, List, Optional
-from qshield.models import DetectionFinding, CryptographicAsset
+import re
+
+from qshield.models import DetectionFinding, CryptographicAsset, split_algorithm_components
+
+
+DETECTOR_VERSION = "rule-engine-v2"
+
+
+def normalize_algorithm(value: str) -> str:
+    """Normalize an algorithm identifier for deterministic matching."""
+    return re.sub(r"[^a-z0-9+.-]", "", str(value).strip().lower())
+
+
+def algorithm_components(value: str) -> list[str]:
+    """Return compound algorithm components without losing the original label."""
+    return split_algorithm_components(value)
 
 
 # ── Algorithm Classification Rules ────────────────────────────────────
@@ -343,7 +358,7 @@ def analyze_asset(asset: dict) -> DetectionFinding:
     """
     algo_raw = str(asset.get("cryptographic_algorithm", "")).strip()
     purpose_raw = str(asset.get("cryptographic_purpose", "")).strip()
-    algo_lower = algo_raw.lower().replace(" ", "").replace("_", "")
+    algo_lower = normalize_algorithm(algo_raw).replace("_", "")
 
     if not algo_raw or algo_lower in ("unknown", "none", "n/a", ""):
         return DetectionFinding(
@@ -479,8 +494,12 @@ def analyze_asset(asset: dict) -> DetectionFinding:
 def _check_hybrid(algo_lower: str, algo_raw: str, purpose_raw: str,
                    asset: dict) -> Optional[DetectionFinding]:
     """Check for hybrid classical+PQC configurations."""
+    pqc_only_aliases = ["ml-kem", "mlkem", "kyber", "ml-dsa", "mldsa", "dilithium", "slh-dsa", "slhdsa", "sphincs"]
+    classical_text = algo_lower
+    for alias in pqc_only_aliases:
+        classical_text = classical_text.replace(alias, "")
     has_classical = any(
-        p in algo_lower for p in ["rsa", "ecdh", "ecdsa", "ecc"]
+        p in classical_text for p in ["rsa", "ecdh", "ecdhe", "ecdsa", "ecc", "diffie-hellman", "dhe", "dh", "dsa"]
     )
     has_pqc = any(
         p in algo_lower for p in [
@@ -520,3 +539,48 @@ def _check_hybrid(algo_lower: str, algo_raw: str, purpose_raw: str,
 def analyze_assets(assets: List[dict]) -> List[DetectionFinding]:
     """Analyze a list of asset dicts and return findings."""
     return [analyze_asset(a) for a in assets]
+
+
+def analyze_usages(asset: dict, usages: List[dict]) -> List[DetectionFinding]:
+    """Analyze every structured cryptographic usage attached to an asset."""
+    findings = []
+    for usage in usages:
+        usage_asset = dict(asset)
+        usage_asset.update({
+            "cryptographic_algorithm": usage.get("algorithm", ""),
+            "cryptographic_purpose": usage.get("purpose", "Unknown"),
+            "protocol": usage.get("protocol_or_location", asset.get("protocol", "")),
+        })
+        finding = analyze_asset(usage_asset)
+        finding.asset_id = asset.get("asset_id", finding.asset_id)
+        findings.append(finding)
+    return findings
+
+
+def aggregate_findings(findings: List[DetectionFinding], asset_id: str = "") -> DetectionFinding:
+    """Create an asset-level finding from multiple usage findings.
+
+    The highest-exposure usage wins, while the evidence records all component
+    results so a reviewer can inspect the underlying mechanisms.
+    """
+    if not findings:
+        return analyze_asset({"asset_id": asset_id, "cryptographic_algorithm": ""})
+    ranked = sorted(
+        findings,
+        key=lambda item: (
+            bool(item.is_quantum_vulnerable),
+            bool(item.needs_review),
+            item.confidence == "High",
+        ),
+        reverse=True,
+    )
+    primary = ranked[0]
+    primary.asset_id = asset_id or primary.asset_id
+    primary.algorithm_components = [finding.algorithm for finding in findings]
+    primary.evidence = " ".join(
+        f"[{finding.algorithm} / {finding.purpose}] {finding.evidence}" for finding in findings
+    )
+    primary.needs_review = primary.needs_review or len(findings) > 1
+    if len(findings) > 1:
+        primary.vulnerability_type = f"Multiple cryptographic usages: {primary.vulnerability_type}"
+    return primary

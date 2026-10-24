@@ -8,9 +8,11 @@ standards, relevant guidance, limitations, and AI behavior.
 import json
 import os
 import streamlit as st
+from streamlit.errors import StreamlitAPIException
 
 from qshield.models import DEFAULT_SCORING_CONFIG, NIST_PQC_STANDARDS
 from qshield.ai_assistant import get_standards_reference
+from qshield.standards import standards_reference_version
 
 
 st.set_page_config(
@@ -30,12 +32,15 @@ st.markdown("""
 with st.sidebar:
     st.markdown("## 🛡️ Q-Shield")
     st.markdown("---")
-    st.page_link("app.py", label="📊 Overview")
-    st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
-    st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
-    st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
-    st.page_link("pages/4_Reports.py", label="📄 Reports")
-    st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
+    try:
+        st.page_link("app.py", label="📊 Overview")
+        st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
+        st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
+        st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
+        st.page_link("pages/4_Reports.py", label="📄 Reports")
+        st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
+    except StreamlitAPIException:
+        st.caption("Use the main app to navigate between pages.")
 
 # ── Header ───────────────────────────────────────────────────────────
 st.markdown("# 📚 Methodology & Standards")
@@ -51,6 +56,7 @@ st.markdown(
     "NIST has standardized three post-quantum cryptographic algorithms. "
     "These are the primary migration targets recommended by Q-Shield."
 )
+st.caption(f"Reference version: {standards_reference_version()} · planning reference, not live compliance validation.")
 
 for fips, info in NIST_PQC_STANDARDS.items():
     with st.expander(f"📘 {fips}: {info['title']}", expanded=False):
@@ -142,6 +148,7 @@ bands = cfg["risk_bands"]
 band_colors = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🟢"}
 for level, (low, high) in bands.items():
     st.markdown(f"- {band_colors.get(level, '⚪')} **{level}:** {low}–{high}")
+st.caption("Bands use continuous intervals: Low [0,35), Medium [35,60), High [60,80), Critical [80,100].")
 
 # ── Detection Rules ──────────────────────────────────────────────────
 st.markdown("---")

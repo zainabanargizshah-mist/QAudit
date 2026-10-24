@@ -2,7 +2,7 @@
 
 **AI-Assisted Quantum-Readiness Assessment and PQC Migration Planner**
 
-Q-Shield helps organizations prepare for post-quantum cryptography (PQC) by building a cryptographic asset inventory, identifying quantum-vulnerable algorithms, scoring risk transparently, and generating migration recommendations aligned with NIST PQC standards.
+Q-Shield helps organizations prepare for post-quantum cryptography (PQC) by maintaining a declared cryptographic inventory, identifying algorithms that require quantum-readiness review, calculating an explainable migration-priority heuristic, and generating advisory planning guidance aligned with NIST PQC references.
 
 > ⚠️ **This is a prototype assessment and planning tool, not an automated production migration system.** All findings are decision-support estimates requiring human review. Do not upload confidential production inventories to a public demo.
 
@@ -12,17 +12,17 @@ Q-Shield helps organizations prepare for post-quantum cryptography (PQC) by buil
 
 | Feature | Description |
 |---------|-------------|
-| **Cryptographic Inventory** | Import, browse, filter, add, edit, and export cryptographic assets (CSV/JSON) |
-| **Detection Engine** | Deterministic, rule-based classification of algorithms by quantum vulnerability |
-| **Explainable Risk Scoring** | Transparent 0–100 scores with configurable weights and full breakdowns |
-| **Migration Planner** | Phased recommendations aligned with NIST FIPS 203, 204, 205 |
-| **AI Assistant** | Optional LLM-powered analysis grounded in NIST standards (works without API key) |
+| **Declared Inventory** | Import, browse, filter, add, edit, and export declared cryptographic asset records (CSV/JSON) with provenance |
+| **Detection Engine** | Deterministic, versioned rule-based classification of declared algorithm labels |
+| **Migration-Priority Scoring** | Transparent 0–100 planning heuristic with configurable weights and full breakdowns |
+| **Migration Planner** | Phased advisory guidance aligned with NIST FIPS 203, 204, 205 |
+| **AI Assistant** | Optional provider-labeled LLM advisory with a clearly marked rule-based fallback |
 | **Professional Reports** | PDF and CSV exports generated from live assessment data |
 | **Methodology Reference** | Full documentation of scoring, detection rules, standards, and limitations |
 
 ## Technology Stack
 
-- **Language:** Python 3.11+
+- **Language:** Python 3.12
 - **Frontend:** Streamlit
 - **Data Processing:** Pandas
 - **Storage:** SQLite (with abstraction layer)
@@ -61,7 +61,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The app opens at `http://localhost:8501`. Click **📥 Load Demo Data** in the sidebar to populate with synthetic financial-system assets.
+The app opens at `http://localhost:8501`. Click **＋ Load demo data** to populate a local prototype workspace with synthetic financial-system records. These are declared demo records, not discovered assets.
 
 ### Run Tests
 
@@ -144,9 +144,9 @@ Add secrets in the Streamlit dashboard:
 
 No Docker or paid infrastructure required.
 
-## Risk Scoring Methodology
+## Migration-Priority Methodology
 
-Scores are weighted sums of normalized factors (0–100):
+Scores are weighted sums of normalized factors (0–100). They are planning heuristics, not probabilities, compliance ratings, CVSS scores, or NIST classifications:
 
 | Factor | Weight | Description |
 |--------|--------|-------------|
@@ -157,7 +157,7 @@ Scores are weighted sums of normalized factors (0–100):
 | Dependency Complexity | 10% | Number of dependent systems |
 | Evidence Confidence | 5% | Uncertainty penalty for incomplete data |
 
-**Risk Bands:** Critical (80–100), High (60–79), Medium (35–59), Low (0–34)
+**Priority Bands:** Critical [80,100], High [60,80), Medium [35,60), Low [0,35)
 
 These are prototype defaults, not official NIST classifications.
 
@@ -182,13 +182,15 @@ These are prototype defaults, not official NIST classifications.
 
 ## Known Limitations
 
-1. **Prototype status** — not a production enterprise security system
-2. **Rule-based detection** — recognizes a defined set of algorithms; unusual names flagged for review
-3. **No live scanning** — assesses declared configurations, not live traffic
-4. **Score precision** — approximate estimates for planning, not precise measurements
-5. **No multi-tenancy** — demo deployment does not isolate user data
-6. **AI limitations** — AI recommendations may be incomplete; always require human review
-7. **Standard evolution** — NIST guidance may be updated; reference set should be refreshed periodically
+1. **Declared inventory only** — no live discovery or runtime verification
+2. **Prototype status** — not a production enterprise security system
+3. **Rule-based detection** — recognizes a defined set of algorithms; unusual names flagged for review
+4. **No live scanning** — assesses declared configurations, not live traffic
+5. **Score precision** — approximate estimates for planning, not precise measurements
+6. **No multi-tenancy** — demo deployment does not isolate user data
+7. **Migration status is owner-reported** — “Completed” is not verified by Q-Shield
+8. **AI limitations** — AI recommendations may be incomplete; always require human review
+9. **Standard evolution** — NIST guidance may be updated; reference set should be refreshed periodically
 
 ## License
 

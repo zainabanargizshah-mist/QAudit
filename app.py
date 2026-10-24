@@ -14,8 +14,7 @@ from datetime import datetime
 from qshield import __app_name__, __app_subtitle__, __version__
 from qshield.database import Database
 from qshield.inventory import load_demo_assets, import_assets_to_db, get_assets_dataframe
-from qshield.detection import analyze_asset
-from qshield.risk_engine import compute_risk_score
+from qshield.assessment import assess_all
 from qshield.models import DEFAULT_SCORING_CONFIG
 
 
@@ -151,6 +150,13 @@ def get_database():
 db = get_database()
 
 
+# ── Helper: Run Assessment ───────────────────────────────────────────
+
+def _run_assessment(database: Database):
+    """Run the shared detection and scoring pipeline on all assets."""
+    assess_all(database)
+
+
 # ── Sidebar ──────────────────────────────────────────────────────────
 
 with st.sidebar:
@@ -189,26 +195,6 @@ with st.sidebar:
     st.markdown(
         f"<small>v{__version__} · Track: Cybersecurity</small>",
         unsafe_allow_html=True
-    )
-
-
-# ── Helper: Run Assessment ───────────────────────────────────────────
-
-def _run_assessment(database: Database):
-    """Run detection and scoring on all assets."""
-    assets = database.get_all_assets()
-    for asset in assets:
-        finding = analyze_asset(asset)
-        score = compute_risk_score(asset, finding)
-        database.save_assessment(
-            asset["asset_id"],
-            finding.to_dict(),
-            score.to_dict()
-        )
-    database.log_activity(
-        "Assessment completed",
-        f"Assessed {len(assets)} assets",
-        len(assets)
     )
 
 
