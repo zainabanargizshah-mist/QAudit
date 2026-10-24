@@ -11,7 +11,6 @@ import streamlit as st
 
 from qshield.models import DEFAULT_SCORING_CONFIG, NIST_PQC_STANDARDS
 from qshield.ai_assistant import get_standards_reference
-from qshield.ui import inject_styles, render_flow_map, render_page_header, render_sidebar, section_title
 
 
 st.set_page_config(
@@ -20,26 +19,34 @@ st.set_page_config(
     layout="wide",
 )
 
-inject_styles()
+st.markdown("""
+<style>
+    [data-testid="stSidebar"] { background-color: #1a1f36; }
+    [data-testid="stSidebar"] * { color: #e0e4ef !important; }
+    footer { visibility: hidden; }
+</style>
+""", unsafe_allow_html=True)
 
-render_sidebar("Standards")
+with st.sidebar:
+    st.markdown("## 🛡️ Q-Shield")
+    st.markdown("---")
+    st.page_link("app.py", label="📊 Overview")
+    st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
+    st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
+    st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
+    st.page_link("pages/4_Reports.py", label="📄 Reports")
+    st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
 
 # ── Header ───────────────────────────────────────────────────────────
-render_page_header(
-    "STANDARDS",
-    "Make every recommendation explainable",
-    "Explore the detection rules, scoring factors, NIST references, AI boundaries, and limitations behind Q-Shield's decision-support workflow.",
+st.markdown("# 📚 Methodology & Standards")
+st.markdown(
+    "How Q-Shield detects quantum-vulnerable cryptography, scores risk, "
+    "and generates recommendations — with full transparency."
 )
-render_flow_map([
-    ("N1", "Observe", "Inventory the cryptographic estate."),
-    ("N2", "Detect", "Classify vulnerable and PQC usage."),
-    ("N3", "Explain", "Make every finding auditable."),
-    ("N4", "Verify", "Keep standards and assumptions visible."),
-])
 
 # ── NIST PQC Standards ───────────────────────────────────────────────
 st.markdown("---")
-section_title("NIST post-quantum cryptography standards", "These standards are the primary migration targets used by Q-Shield recommendations.")
+st.markdown("## NIST Post-Quantum Cryptography Standards")
 st.markdown(
     "NIST has standardized three post-quantum cryptographic algorithms. "
     "These are the primary migration targets recommended by Q-Shield."
@@ -62,7 +69,7 @@ for fips, info in NIST_PQC_STANDARDS.items():
 
 # ── Additional Guidance ──────────────────────────────────────────────
 st.markdown("---")
-section_title("Additional standards and guidance")
+st.markdown("## Additional Standards & Guidance")
 
 refs = get_standards_reference()
 for ref_id, ref in refs.items():
@@ -83,7 +90,7 @@ st.info(
 
 # ── Risk Scoring Methodology ────────────────────────────────────────
 st.markdown("---")
-section_title("Risk scoring methodology", "The score is a transparent, configurable weighted model—not an official NIST classification.")
+st.markdown("## Risk Scoring Methodology")
 
 cfg = DEFAULT_SCORING_CONFIG
 
@@ -138,7 +145,7 @@ for level, (low, high) in bands.items():
 
 # ── Detection Rules ──────────────────────────────────────────────────
 st.markdown("---")
-section_title("Detection engine rules", "Deterministic, testable classification with a rule ID and evidence for every finding.")
+st.markdown("## Detection Engine Rules")
 
 st.markdown("""
 The detection engine classifies cryptographic algorithms using
@@ -174,7 +181,7 @@ and evidence that produced it.
 
 # ── AI Assistant Behavior ────────────────────────────────────────────
 st.markdown("---")
-section_title("AI assistant behavior and limitations")
+st.markdown("## AI Assistant Behavior & Limitations")
 
 st.markdown("""
 ### When AI is Available
@@ -215,7 +222,7 @@ st.markdown("""
 
 # ── Limitations ──────────────────────────────────────────────────────
 st.markdown("---")
-section_title("Known limitations")
+st.markdown("## Known Limitations")
 
 st.markdown("""
 1. **Prototype Status**: Q-Shield is a prototype assessment tool, not a
@@ -244,7 +251,7 @@ st.markdown("""
 
 # Load and display standards JSON if available
 st.markdown("---")
-section_title("Standards reference data")
+st.markdown("## Standards Reference Data")
 
 json_path = os.path.join(os.path.dirname(__file__), "..", "data", "standards_reference.json")
 json_path = os.path.normpath(json_path)

@@ -1,163 +1,234 @@
-"""Q-Shield migration roadmap for moving prioritized assets toward PQC."""
+"""
+Q-Shield — Migration Planner Page
 
-from __future__ import annotations
-
-import json
+Generates PQC migration recommendations, displays phased migration
+framework, and allows migration status tracking.
+"""
 
 import streamlit as st
+import pandas as pd
+import json
 
-from qshield.ai_assistant import AIAssistant
 from qshield.database import Database
-from qshield.models import CryptographicAsset, DetectionFinding, MigrationStatus, NIST_PQC_STANDARDS, RiskScoreResult
-from qshield.recommendations import generate_all_recommendations, get_migration_phases
-from qshield.ui import inject_styles, render_flow_map, render_page_header, render_sidebar, section_title
+from qshield.detection import analyze_asset
+from qshield.risk_engine import compute_risk_score
+from qshield.recommendations import (
+    generate_all_recommendations, get_migration_phases,
+)
+from qshield.models import MigrationStatus, NIST_PQC_STANDARDS, DetectionFinding, RiskScoreResult
+from qshield.ai_assistant import AIAssistant
 
 
-st.set_page_config(page_title="Migration Roadmap — Q-Shield", page_icon="↗", layout="wide")
-inject_styles()
-render_sidebar("Migration Roadmap")
+st.set_page_config(
+    page_title="Migration Planner — Q-Shield",
+    page_icon="🗺️",
+    layout="wide",
+)
 
+st.markdown("""
+<style>
+    [data-testid="stSidebar"] { background-color: #1a1f36; }
+    [data-testid="stSidebar"] * { color: #e0e4ef !important; }
+    .demo-badge {
+        display: inline-block; background-color: #f59e0b;
+        color: #1a1f36 !important; padding: 3px 10px; border-radius: 4px;
+        font-size: 0.7rem; font-weight: 700;
+    }
+    .phase-card {
+        background: #ffffff; border: 1px solid #e2e8f0;
+        border-radius: 8px; padding: 16px; margin: 8px 0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .phase-number {
+        display: inline-block; background: #0e7c86; color: white;
+        width: 28px; height: 28px; border-radius: 50%;
+        text-align: center; line-height: 28px; font-weight: 700;
+        margin-right: 8px; font-size: 0.85rem;
+    }
+    footer { visibility: hidden; }
+</style>
+""", unsafe_allow_html=True)
 
 @st.cache_resource
-def get_database() -> Database:
+def get_database():
     return Database()
-
 
 db = get_database()
 
+with st.sidebar:
+    st.markdown("## 🛡️ Q-Shield")
+    st.markdown("---")
+    st.page_link("app.py", label="📊 Overview")
+    st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
+    st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
+    st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
+    st.page_link("pages/4_Reports.py", label="📄 Reports")
+    st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
 
-render_page_header(
-    "MIGRATION ROADMAP",
-    "Move from exposure to verified progress",
-    "Organize PQC migration as a sequence of accountable phases. Each recommendation remains linked to its current algorithm, target standard, dependencies, and validation work.",
+# ── Header ───────────────────────────────────────────────────────────
+st.markdown("# 🗺️ PQC Migration Planner")
+st.markdown(
+    "Phased migration recommendations aligned with NIST PQC standards. "
+    "'Completed' status means a user has recorded completion — it is not inferred from algorithm presence."
 )
-render_flow_map([
-    ("N1", "Observe", "Inventory the cryptographic estate."),
-    ("N2", "Detect", "Classify vulnerable and PQC usage."),
-    ("N3", "Prioritize", "Explain what needs attention first."),
-    ("N4", "Migrate", "Move assets through a verified roadmap."),
-])
 
 assets = db.get_all_assets()
 assessments = db.get_all_assessments()
+
 if not assets:
-    st.info("No assets loaded. Start in Inventory to load demo data or import a sanitized dataset.")
-    if st.button("Open Inventory", type="primary"):
-        st.switch_page("pages/1_Asset_Inventory.py")
-    st.stop()
-if not assessments:
-    st.info("Run a risk assessment before building the migration roadmap.")
-    if st.button("Open Risk Queue", type="primary"):
-        st.switch_page("pages/2_Risk_Assessment.py")
+    st.info("📭 No assets loaded. Use **Asset Inventory** to load demo data or upload a CSV/JSON file.")
     st.stop()
 
-asset_map = {asset["asset_id"]: asset for asset in assets}
+if not assessments:
+    st.info("⏳ Run an assessment first from the **Risk Assessment** page.")
+    st.stop()
+
+# ── Build Recommendations ────────────────────────────────────────────
+asset_map = {a["asset_id"]: a for a in assets}
 findings = []
 scores = []
-for assessment in assessments:
-    finding_data = assessment.get("finding_json", {})
-    score_data = assessment.get("score_json", {})
-    findings.append(DetectionFinding(**{key: value for key, value in finding_data.items() if key in DetectionFinding.__dataclass_fields__}))
-    scores.append(RiskScoreResult(**{key: value for key, value in score_data.items() if key in RiskScoreResult.__dataclass_fields__}))
-recommendations = generate_all_recommendations(assets, findings, scores)
 
-completed = sum(1 for asset in assets if asset.get("migration_status") == "Completed")
-in_progress = sum(1 for asset in assets if asset.get("migration_status") in {"Assessment", "Planned", "Testing", "Ready for Review"})
-blocked = sum(1 for recommendation in recommendations if recommendation.get("needs_review"))
-progress_pct = round((completed / len(assets)) * 100) if assets else 0
+for a in assessments:
+    f_data = a.get("finding_json", {})
+    s_data = a.get("score_json", {})
+    findings.append(DetectionFinding(**{k: v for k, v in f_data.items() if k in DetectionFinding.__dataclass_fields__}))
+    scores.append(RiskScoreResult(**{k: v for k, v in s_data.items() if k in RiskScoreResult.__dataclass_fields__}))
 
-section_title("Roadmap posture", "Status is recorded by the team. Q-Shield does not infer completion from algorithm presence.")
-metric_cols = st.columns(4)
-metric_cols[0].metric("Migration progress", f"{progress_pct}%", f"{completed} of {len(assets)} completed")
-metric_cols[1].metric("In progress", in_progress, "Assessment through review")
-metric_cols[2].metric("Needs review", blocked, "Evidence or hybrid configuration")
-metric_cols[3].metric("Recommendations", len(recommendations), "Assets with a roadmap record")
+recs = generate_all_recommendations(assets, findings, scores)
 
-section_title("PQC migration phases", "Use the phase framework as a shared language for security, platform, and application owners.")
-phase_cols = st.columns(3)
-for index, phase in enumerate(get_migration_phases()):
-    with phase_cols[index % 3]:
-        activities = "".join(f"<li>{activity}</li>" for activity in phase["activities"][:3])
-        st.markdown(
-            f"""
-            <div class="qs-card" style="margin-bottom: 14px;">
-                <div class="qs-card-title">Phase {phase['phase']}</div>
-                <div style="font-size:1.03rem;font-weight:950;color:#080808;text-transform:uppercase;">{phase['name']}</div>
-                <p class="qs-muted">{phase['description']}</p>
-                <ul style="padding-left:18px;margin-bottom:0;color:#66758a;font-size:.82rem;line-height:1.55;">{activities}</ul>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+# ── Migration Phase Framework ────────────────────────────────────────
+with st.expander("📋 PQC Migration Phase Framework", expanded=False):
+    phases = get_migration_phases()
+    for phase in phases:
+        st.markdown(f"""
+        <div class="phase-card">
+            <span class="phase-number">{phase['phase']}</span>
+            <strong>{phase['name']}</strong><br>
+            <small>{phase['description']}</small>
+        </div>
+        """, unsafe_allow_html=True)
+        for activity in phase["activities"]:
+            st.markdown(f"  - {activity}")
 
-section_title("Recommendation queue", "Prioritize critical and high findings first, then update each asset as testing and validation progress.")
-filter_col1, filter_col2 = st.columns(2)
-with filter_col1:
-    priority_filter = st.multiselect("Priority", ["Critical", "High", "Medium", "Low"])
-with filter_col2:
+st.markdown("---")
+
+# ── NIST PQC Standards Reference ────────────────────────────────────
+with st.expander("📚 NIST PQC Standards Quick Reference", expanded=False):
+    for fips, info in NIST_PQC_STANDARDS.items():
+        st.markdown(f"**{fips}: {info['title']}**")
+        st.markdown(f"- Purpose: {info['purpose']}")
+        st.markdown(f"- Algorithm: `{info['algorithm']}`")
+        st.markdown(f"- Status: {info['status']}")
+        st.markdown(f"- URL: [{info['url']}]({info['url']})")
+        st.markdown("")
+
+st.markdown("---")
+
+# ── Recommendations Table ────────────────────────────────────────────
+st.markdown(f"### Migration Recommendations ({len(recs)} assets)")
+
+# Filters
+rcol1, rcol2 = st.columns(2)
+with rcol1:
+    priority_filter = st.multiselect(
+        "Filter by Priority",
+        ["Critical", "High", "Medium", "Low"],
+    )
+with rcol2:
     show_only_vulnerable = st.checkbox("Show only quantum-vulnerable assets", value=False)
 
-filtered_recommendations = recommendations
+filtered_recs = recs
 if priority_filter:
-    filtered_recommendations = [recommendation for recommendation in filtered_recommendations if recommendation.get("risk_priority") in priority_filter]
+    filtered_recs = [r for r in filtered_recs if r.get("risk_priority") in priority_filter]
 if show_only_vulnerable:
-    finding_map = {finding.asset_id: finding for finding in findings}
-    filtered_recommendations = [recommendation for recommendation in filtered_recommendations if finding_map.get(recommendation["asset_id"], DetectionFinding()).is_quantum_vulnerable]
+    finding_map = {f.asset_id: f for f in findings}
+    filtered_recs = [r for r in filtered_recs if finding_map.get(r["asset_id"], DetectionFinding()).is_quantum_vulnerable]
 
-st.caption(f"Showing {len(filtered_recommendations)} of {len(recommendations)} roadmap items")
-all_statuses = [entry.value for entry in MigrationStatus]
-for recommendation in filtered_recommendations:
-    asset_id = recommendation["asset_id"]
-    priority = recommendation.get("risk_priority", "Unknown")
-    asset = asset_map.get(asset_id, {})
+for rec in filtered_recs:
+    aid = rec["asset_id"]
+    priority = rec.get("risk_priority", "Unknown")
+    icon = "🔴" if priority == "Critical" else "🟠" if priority == "High" else "🟡" if priority == "Medium" else "🟢"
+
     with st.expander(
-        f"{asset.get('asset_name', asset_id)} · {priority} · {recommendation.get('risk_score', 0):.0f}/100 · {recommendation.get('migration_status', 'Not Started')}",
-        expanded=priority in {"Critical", "High"},
+        f"{icon} {rec['asset_name']} — {priority} ({rec.get('risk_score', 0)}/100) "
+        f"· Status: {rec.get('migration_status', 'N/A')}"
+        f"{'  ⚠️ REVIEW' if rec.get('needs_review') else ''}",
     ):
-        detail_col1, detail_col2 = st.columns([1.25, 1])
-        with detail_col1:
-            st.markdown(f"**Current algorithm:** `{recommendation.get('current_algorithm', 'N/A')}`")
-            st.markdown(f"**Purpose:** {recommendation.get('current_purpose', 'N/A')}")
-            st.markdown(f"**Identified concern:** {recommendation.get('identified_concern', 'N/A')}")
-            if recommendation.get("target_standard"):
-                st.markdown(f'<div class="qs-callout"><strong>Target standard</strong><br>{recommendation["target_standard"]} · {recommendation.get("target_algorithm", "Target algorithm pending")}</div>', unsafe_allow_html=True)
-            st.markdown("**Suggested actions**")
-            for action in recommendation.get("suggested_actions", []):
+        mc1, mc2 = st.columns([3, 2])
+
+        with mc1:
+            st.markdown(f"**Current Algorithm:** `{rec.get('current_algorithm', 'N/A')}`")
+            st.markdown(f"**Purpose:** {rec.get('current_purpose', 'N/A')}")
+            st.markdown(f"**Identified Concern:** {rec.get('identified_concern', 'N/A')}")
+
+            if rec.get("target_standard"):
+                st.success(f"🎯 **Target Standard:** {rec['target_standard']}")
+                st.markdown(f"**Target Algorithm:** {rec.get('target_algorithm', 'N/A')}")
+
+            st.markdown("**Suggested Actions:**")
+            for action in rec.get("suggested_actions", []):
                 if action:
                     st.markdown(f"- {action}")
-            st.markdown(f"**Dependencies:** {recommendation.get('dependencies', 'N/A')}")
-        with detail_col2:
-            st.markdown("**Validation requirements**")
-            for requirement in recommendation.get("validation_requirements", []):
-                st.markdown(f"- {requirement}")
-            st.markdown("**Testing requirements**")
-            for requirement in recommendation.get("testing_requirements", []):
-                st.markdown(f"- {requirement}")
-            st.markdown("---")
-            current = asset.get("migration_status", "Not Started")
-            new_status = st.selectbox("Update migration status", all_statuses, index=all_statuses.index(current) if current in all_statuses else 0, key=f"roadmap_status_{asset_id}")
-            if st.button("Save status", key=f"roadmap_save_{asset_id}", type="primary"):
-                asset["migration_status"] = new_status
-                db.upsert_asset(CryptographicAsset.from_dict(asset))
-                db.log_activity(f"Migration status changed to '{new_status}'", f"Asset: {asset_id}")
-                st.success(f"Updated {asset_id} to {new_status}")
-                st.rerun()
-            if recommendation.get("needs_review"):
-                st.warning("Manual review is required before migration action.")
 
-section_title("Contextual AI assistant", "Ask questions about this assessment. Only a limited anonymized summary is sent when an AI provider is configured.")
+            st.markdown(f"**Dependencies:** {rec.get('dependencies', 'N/A')}")
+
+        with mc2:
+            st.markdown("**Validation Requirements:**")
+            for v in rec.get("validation_requirements", []):
+                st.markdown(f"- {v}")
+
+            st.markdown("**Testing Requirements:**")
+            for t in rec.get("testing_requirements", []):
+                st.markdown(f"- {t}")
+
+            # Migration status update
+            st.markdown("---")
+            st.markdown("**Update Migration Status:**")
+            all_statuses = [e.value for e in MigrationStatus]
+            current = rec.get("migration_status", "Not Started")
+            new_status = st.selectbox(
+                "Status", all_statuses,
+                index=all_statuses.index(current) if current in all_statuses else 0,
+                key=f"status_{aid}",
+            )
+            if st.button("Update Status", key=f"update_{aid}"):
+                asset = db.get_asset(aid)
+                if asset:
+                    asset["migration_status"] = new_status
+                    from qshield.models import CryptographicAsset
+                    db.upsert_asset(CryptographicAsset.from_dict(asset))
+                    db.log_activity(
+                        f"Migration status changed to '{new_status}'",
+                        f"Asset: {aid}",
+                    )
+                    st.success(f"✅ Updated {aid} to '{new_status}'")
+                    st.rerun()
+
+            if rec.get("needs_review"):
+                st.warning("⚠️ Requires manual review before action.")
+
+st.markdown("---")
+
+# ── AI Assistant ─────────────────────────────────────────────────────
+st.markdown("### 🤖 AI Migration Assistant")
+
 ai = AIAssistant()
 if ai.is_available():
-    st.success(f"{ai.provider_name} is configured · `{ai.model}`")
+    st.success(f"✅ {ai.provider_name} is configured · `{ai.model}`")
 else:
-    st.info("AI is not configured. Rule-based recommendations remain available.")
+    st.info(
+        "💡 AI assistant is not configured. Rule-based recommendations are active. "
+        "Set `GEMINI_API_KEY` in your local `.env` or Streamlit secrets to enable Gemini."
+    )
 
+# Send aggregate counts and a few anonymized risk records only. Asset IDs,
+# names, owners, notes, and uploaded source data are excluded.
 context_summary = {
     "asset_count": len(assets),
     "assessment_count": len(assessments),
-    "quantum_vulnerable_count": sum(bool(item.get("is_quantum_vulnerable")) for item in assessments),
-    "pqc_in_use_count": sum(bool(item.get("is_pqc")) for item in assessments),
-    "needs_review_count": sum(bool(item.get("needs_review")) for item in assessments),
+    "quantum_vulnerable_count": sum(bool(a.get("is_quantum_vulnerable")) for a in assessments),
+    "pqc_in_use_count": sum(bool(a.get("is_pqc")) for a in assessments),
+    "needs_review_count": sum(bool(a.get("needs_review")) for a in assessments),
     "highest_risk_assets": [],
 }
 for index, assessment in enumerate(assessments[:8], start=1):
@@ -173,29 +244,33 @@ for index, assessment in enumerate(assessments[:8], start=1):
         "needs_review": bool(assessment.get("needs_review")),
         "migration_status": asset.get("migration_status", "Not Started"),
     })
+context_summary = json.dumps(context_summary, ensure_ascii=True)
 
-with st.expander("Ask about the roadmap", expanded=False):
-    st.caption("Asset names, IDs, owners, notes, and raw uploads are excluded from the assistant context.")
-    prompt_options = [
-        "Generate an executive summary of this assessment",
-        "Summarize the highest-priority assets for migration",
-        "Draft a phased PQC migration plan for this organization",
-        "Explain the compatibility concerns for migrating from RSA to ML-KEM",
-        "What are the key risks of harvest-now-decrypt-later attacks?",
-    ]
-    selected_prompt = st.selectbox("Choose a question", prompt_options)
-    custom_prompt = st.text_input("Or write your own", placeholder="Ask about the assessment...")
-    if st.button("Ask assistant", type="primary"):
-        prompt = custom_prompt or selected_prompt
-        with st.spinner("Preparing a grounded response..."):
-            response = ai.query(prompt, context=json.dumps(context_summary, ensure_ascii=True))
-        if ai.last_notice:
-            st.info(ai.last_notice)
-        if ai.last_error:
-            st.warning(f"AI-generated analysis is unavailable for this request. {ai.last_error}")
-        st.markdown(response)
+st.caption(
+    "On each question, Q-Shield sends Gemini your question and a limited, "
+    "anonymized assessment summary. Asset names, IDs, owners, notes, and raw uploads are excluded."
+)
 
-with st.expander("NIST PQC standards quick reference", expanded=False):
-    for fips, info in NIST_PQC_STANDARDS.items():
-        st.markdown(f"**{fips}: {info['title']}**")
-        st.caption(f"{info['purpose']} · `{info['algorithm']}` · {info['status']}")
+prompt_options = [
+    "Generate an executive summary of this assessment",
+    "Summarize the highest-priority assets for migration",
+    "Draft a phased PQC migration plan for this organization",
+    "Explain the compatibility concerns for migrating from RSA to ML-KEM",
+    "What are the key risks of harvest-now-decrypt-later attacks?",
+]
+
+selected_prompt = st.selectbox("Select a question or write your own:", prompt_options)
+custom_prompt = st.text_input("Or enter a custom question:", placeholder="Ask about the assessment...")
+
+if st.button("🤖 Ask AI Assistant", type="primary"):
+    prompt = custom_prompt if custom_prompt else selected_prompt
+    with st.spinner("Analyzing..."):
+        response = ai.query(prompt, context=context_summary)
+    if ai.last_notice:
+        st.info(ai.last_notice)
+    if ai.last_error:
+        st.warning(
+            f"AI-generated analysis is unavailable for this request. {ai.last_error} "
+            "The response below is rule-based guidance, not a custom AI migration plan."
+        )
+    st.markdown(response)

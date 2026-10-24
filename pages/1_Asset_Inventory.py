@@ -1,148 +1,251 @@
-"""Q-Shield inventory workspace: import, browse, edit, and export assets."""
+"""
+Q-Shield — Asset Inventory Page
 
-from __future__ import annotations
+Manage cryptographic assets: upload, browse, filter, add, edit, delete, export.
+"""
 
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import io
+import json
 
 from qshield.database import Database
-from qshield.detection import analyze_asset
-from qshield.inventory import export_assets_csv, get_assets_dataframe, import_assets_to_db, load_demo_assets
-from qshield.models import (
-    AssetType,
-    BusinessCriticality,
-    CryptoPurpose,
-    CryptographicAsset,
-    DataSensitivity,
-    Environment,
-    MigrationStatus,
+from qshield.inventory import (
+    load_demo_assets, import_assets_to_db, get_assets_dataframe,
+    export_assets_csv,
 )
+from qshield.validation import (
+    validate_file_upload, validate_dataframe, validate_single_asset,
+    sanitize_text, MAX_UPLOAD_MB,
+)
+from qshield.models import (
+    ASSET_FIELDS, CryptographicAsset,
+    AssetType, DataSensitivity, BusinessCriticality,
+    MigrationStatus, Environment, CryptoPurpose,
+)
+from qshield.detection import analyze_asset
 from qshield.risk_engine import compute_risk_score
-from qshield.ui import inject_styles, render_flow_map, render_page_header, render_sidebar, section_title
-from qshield.validation import MAX_UPLOAD_MB, sanitize_text, validate_dataframe, validate_file_upload, validate_single_asset
 
 
-st.set_page_config(page_title="Inventory — Q-Shield", page_icon="▦", layout="wide")
-inject_styles()
-render_sidebar("Inventory")
+st.set_page_config(
+    page_title="Asset Inventory — Q-Shield",
+    page_icon="📋",
+    layout="wide",
+)
+
+# ── Shared CSS (minimal repeat for page) ─────────────────────────────
+st.markdown("""
+<style>
+    [data-testid="stSidebar"] { background-color: #1a1f36; }
+    [data-testid="stSidebar"] * { color: #e0e4ef !important; }
+    .demo-badge {
+        display: inline-block; background-color: #f59e0b;
+        color: #1a1f36 !important; padding: 3px 10px; border-radius: 4px;
+        font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px;
+    }
+    footer { visibility: hidden; }
+</style>
+""", unsafe_allow_html=True)
 
 
 @st.cache_resource
-def get_database() -> Database:
+def get_database():
     return Database()
-
 
 db = get_database()
 
 
-def assess_assets(assets) -> None:
-    for asset in assets:
-        data = asset.to_dict() if hasattr(asset, "to_dict") else asset
-        finding = analyze_asset(data)
-        score = compute_risk_score(data, finding)
-        db.save_assessment(data["asset_id"], finding.to_dict(), score.to_dict())
+# ── Sidebar ──────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("## 🛡️ Q-Shield")
+    st.markdown("*Quantum-Readiness Intelligence*")
+    st.markdown("---")
+    st.page_link("app.py", label="📊 Overview")
+    st.page_link("pages/1_Asset_Inventory.py", label="📋 Asset Inventory")
+    st.page_link("pages/2_Risk_Assessment.py", label="⚡ Risk Assessment")
+    st.page_link("pages/3_Migration_Planner.py", label="🗺️ Migration Planner")
+    st.page_link("pages/4_Reports.py", label="📄 Reports")
+    st.page_link("pages/5_Methodology.py", label="📚 Methodology & Standards")
 
 
-render_page_header(
-    "INVENTORY",
-    "Build a trustworthy cryptographic inventory",
-    "Import sanitized data, validate the fields, then keep ownership and migration state current so every finding has accountable context.",
-)
-render_flow_map([
-    ("N1", "Observe", "Inventory the cryptographic estate."),
-    ("N2", "Detect", "Classify vulnerable and PQC usage."),
-    ("N3", "Prioritize", "Explain what needs attention first."),
-    ("N4", "Migrate", "Move assets through a verified roadmap."),
-])
+# ── Header ───────────────────────────────────────────────────────────
+st.markdown("# 📋 Cryptographic Asset Inventory")
+st.markdown("Manage your organization's cryptographic asset catalog.")
 
-top_col1, top_col2, top_col3 = st.columns([1, 1, 2.5])
-with top_col1:
-    if st.button("＋ Load demo data", use_container_width=True):
-        demo = load_demo_assets()
-        count = import_assets_to_db(db, demo, source="demo_dataset")
-        assess_assets(demo)
+load_col, clear_col = st.columns([1, 1])
+with load_col:
+    if st.button("📥 Load Demo Data", type="primary", help="Load the bundled synthetic dataset into the inventory"):
+        demo_assets = load_demo_assets()
+        count = import_assets_to_db(db, demo_assets, source="demo_dataset")
+        for asset in demo_assets:
+            asset_data = asset.to_dict()
+            finding = analyze_asset(asset_data)
+            score = compute_risk_score(asset_data, finding)
+            db.save_assessment(asset_data["asset_id"], finding.to_dict(), score.to_dict())
         db.log_activity("Assessment completed", f"Assessed {count} demo assets", count)
-        st.success(f"Loaded and assessed {count} assets")
+        st.success(f"✅ Loaded and assessed {count} demo assets.")
         st.rerun()
-with top_col2:
-    csv_data = export_assets_csv(db) if db.asset_count() else ""
-    st.download_button(
-        "⇩ Export inventory",
-        csv_data,
-        file_name="qshield_inventory.csv",
-        mime="text/csv",
-        use_container_width=True,
-        disabled=not bool(csv_data),
-    )
-with top_col3:
-    st.caption("Import flow: upload → validate → review → assess. Existing data is never replaced without an explicit choice.")
 
-section_title("Import inventory", "CSV and JSON uploads are validated before anything is written to the local database.")
-with st.expander("Upload CSV or JSON", expanded=db.asset_count() == 0):
-    st.markdown(f"Maximum upload size: **{MAX_UPLOAD_MB} MB** · Required fields: asset ID, name, type, algorithm")
-    st.warning("Use synthetic or sanitized data in a public demo. Production inventories may contain sensitive information.")
-    replace_existing = st.checkbox("Replace existing inventory before import", value=False)
-    uploaded = st.file_uploader("Choose a CSV or JSON file", type=["csv", "json"])
+with clear_col:
+    if db.asset_count() and st.button("🗑️ Clear Inventory", help="Remove saved assets and assessments"):
+        st.session_state["confirm_clear_inventory"] = True
+
+if st.session_state.get("confirm_clear_inventory"):
+    st.warning("This removes all saved assets and their assessments. Uploaded files and demo data can be loaded again.")
+    confirm_col, cancel_col = st.columns(2)
+    with confirm_col:
+        if st.button("Confirm Clear Inventory", type="primary"):
+            db.delete_all_assets()
+            db.log_activity("Cleared all assets")
+            st.session_state["confirm_clear_inventory"] = False
+            st.rerun()
+    with cancel_col:
+        if st.button("Cancel"):
+            st.session_state["confirm_clear_inventory"] = False
+            st.rerun()
+
+# ── Upload Section ───────────────────────────────────────────────────
+# ── Clear All Banner ─────────────────────────────────────────────────
+current_count = db.asset_count()
+if current_count > 0:
+    clear_col1, clear_col2 = st.columns([4, 1])
+    with clear_col1:
+        st.info(f"📦 **{current_count} assets** currently in inventory. Clear all before uploading a fresh dataset.")
+    with clear_col2:
+        if st.button("🗑️ Clear All Inventory", type="primary", use_container_width=True):
+            st.session_state["confirm_clear"] = True
+
+    if st.session_state.get("confirm_clear"):
+        st.warning("⚠️ This will permanently delete **all assets and assessments**. Are you sure?")
+        conf_col1, conf_col2 = st.columns(2)
+        with conf_col1:
+            if st.button("✅ Yes, Clear Everything", type="primary", use_container_width=True):
+                deleted = db.delete_all_assets()
+                db.log_activity("Cleared inventory", f"Deleted {deleted} assets")
+                st.session_state["confirm_clear"] = False
+                st.success(f"✅ Cleared {deleted} assets. Upload your new inventory below.")
+                st.rerun()
+        with conf_col2:
+            if st.button("❌ Cancel", use_container_width=True):
+                st.session_state["confirm_clear"] = False
+                st.rerun()
+
+st.markdown("---")
+
+with st.expander("📤 Upload Assets (CSV or JSON)", expanded=True):
+    st.markdown(f"Upload a CSV or JSON file. Max size: {MAX_UPLOAD_MB} MB.")
+    st.warning(
+        "⚠️ **Do not upload confidential production inventories to a public demo.** "
+        "Use synthetic or sanitized data only."
+    )
+
+    replace_existing = st.checkbox(
+        "🔄 Replace existing inventory (clear all before import)",
+        value=False,
+        help="When checked, all current assets will be deleted before importing the new file."
+    )
+
+    uploaded = st.file_uploader(
+        "Choose file", type=["csv", "json"],
+        help="CSV must have headers matching asset fields. JSON: array of objects or {assets: [...]}",
+    )
 
     if uploaded:
-        valid, message, dataframe = validate_file_upload(uploaded.read(), uploaded.name)
+        file_bytes = uploaded.read()
+        valid, msg, df = validate_file_upload(file_bytes, uploaded.name)
+
         if not valid:
-            st.error(message)
+            st.error(f"❌ {msg}")
         else:
-            st.success(message)
-            valid_assets, errors = validate_dataframe(dataframe)
+            st.success(f"✅ {msg}")
+            assets, errors = validate_dataframe(df)
+
             if errors:
-                st.warning(f"{len(errors)} validation issue(s) need attention before import.")
-                st.dataframe(pd.DataFrame(errors), use_container_width=True, hide_index=True, height=180)
-            if valid_assets:
-                st.info(f"{len(valid_assets)} valid assets are ready to import.")
+                st.warning(f"⚠️ {len(errors)} validation issue(s) found:")
+                err_df = pd.DataFrame(errors)
+                st.dataframe(err_df, use_container_width=True, height=200)
+
+            if assets:
+                st.info(f"✅ **{len(assets)} valid assets** ready to import.")
                 if replace_existing:
-                    st.warning(f"Importing will delete the current {db.asset_count()} assets first.")
-                if st.button("Import and assess", type="primary"):
+                    st.warning(f"⚠️ This will first delete all {db.asset_count()} existing assets, then import {len(assets)} new ones.")
+
+                if st.button("⬆️ Import & Run Risk Assessment", type="primary"):
                     if replace_existing:
-                        db.delete_all_assets()
-                    count = import_assets_to_db(db, valid_assets, source=uploaded.name)
-                    progress = st.progress(0, text="Assessing imported assets...")
-                    for index, asset in enumerate(valid_assets, start=1):
-                        data = asset.to_dict()
-                        finding = analyze_asset(data)
-                        score = compute_risk_score(data, finding)
-                        db.save_assessment(data["asset_id"], finding.to_dict(), score.to_dict())
-                        progress.progress(index / len(valid_assets), text=f"Assessing {data['asset_id']}...")
+                        deleted = db.delete_all_assets()
+                        db.log_activity("Cleared inventory before import", f"Deleted {deleted} assets")
+
+                    count = import_assets_to_db(db, assets, source=uploaded.name)
+
+                    # Auto-run risk assessment on every imported asset
+                    progress = st.progress(0, text="Running risk assessment...")
+                    for i, asset in enumerate(assets):
+                        d = asset.to_dict()
+                        finding = analyze_asset(d)
+                        score = compute_risk_score(d, finding)
+                        db.save_assessment(d["asset_id"], finding.to_dict(), score.to_dict())
+                        progress.progress((i + 1) / len(assets), text=f"Assessing {d['asset_id']}...")
+
                     progress.empty()
                     db.log_activity("Assessment completed", f"Assessed {count} imported assets", count)
-                    st.success(f"Imported and assessed {count} assets")
+                    st.success(f"✅ Imported and assessed **{count} assets**. Go to ⚡ Risk Assessment to view results.")
                     st.rerun()
             elif not errors:
-                st.warning("No valid assets were found in the upload.")
+                st.warning("No valid assets found in file.")
 
+
+
+# ── Filters ──────────────────────────────────────────────────────────
 df = get_assets_dataframe(db)
+
 if df.empty:
-    st.info("No assets in inventory yet. Load demo data or upload a sanitized dataset above.")
+    st.info(
+        "📭 **No assets in inventory.** Click **Load Demo Data** or upload a CSV/JSON above."
+    )
     st.stop()
 
-section_title("Inventory workspace", f"{len(df)} assets · filter first, then open the record you need to edit or review.")
+st.markdown(f"### Inventory ({len(df)} assets)")
+
 filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+
 with filter_col1:
-    search = st.text_input("Search", placeholder="Name, ID, algorithm, owner")
+    search = st.text_input("🔍 Search", placeholder="Name, ID, algorithm...",
+                           help="Filter by asset name, ID, or algorithm")
 with filter_col2:
-    type_filter = st.multiselect("Asset type", sorted(df["asset_type"].unique()))
+    type_filter = st.multiselect(
+        "Asset Type", options=sorted(df["asset_type"].unique()),
+    )
 with filter_col3:
-    algo_filter = st.multiselect("Algorithm", sorted(df["cryptographic_algorithm"].unique()))
+    algo_filter = st.multiselect(
+        "Algorithm", options=sorted(df["cryptographic_algorithm"].unique()),
+    )
 with filter_col4:
-    status_filter = st.multiselect("Migration status", sorted(df["migration_status"].unique()))
+    status_filter = st.multiselect(
+        "Migration Status", options=sorted(df["migration_status"].unique()),
+    )
 
-filter_col5, filter_col6, filter_col7 = st.columns(3)
-with filter_col5:
-    env_filter = st.multiselect("Environment", sorted(df["environment"].unique()))
-with filter_col6:
-    sens_filter = st.multiselect("Data sensitivity", sorted(df["data_sensitivity"].unique()))
-with filter_col7:
-    crit_filter = st.multiselect("Business criticality", sorted(df["business_criticality"].unique()))
+filter2_col1, filter2_col2, filter2_col3 = st.columns(3)
+with filter2_col1:
+    env_filter = st.multiselect(
+        "Environment", options=sorted(df["environment"].unique()),
+    )
+with filter2_col2:
+    sens_filter = st.multiselect(
+        "Data Sensitivity", options=sorted(df["data_sensitivity"].unique()),
+    )
+with filter2_col3:
+    crit_filter = st.multiselect(
+        "Business Criticality", options=sorted(df["business_criticality"].unique()),
+    )
 
+# Apply filters
 filtered = df.copy()
 if search:
-    filtered = filtered[filtered.apply(lambda row: search.lower() in " ".join(str(value).lower() for value in row.values), axis=1)]
+    mask = filtered.apply(
+        lambda row: search.lower() in " ".join(str(v).lower() for v in row.values),
+        axis=1,
+    )
+    filtered = filtered[mask]
 if type_filter:
     filtered = filtered[filtered["asset_type"].isin(type_filter)]
 if algo_filter:
@@ -156,151 +259,161 @@ if sens_filter:
 if crit_filter:
     filtered = filtered[filtered["business_criticality"].isin(crit_filter)]
 
-st.caption(f"Showing {len(filtered)} of {len(df)} assets")
+st.markdown(f"*Showing {len(filtered)} of {len(df)} assets*")
+
+# ── Asset Table ──────────────────────────────────────────────────────
 display_cols = [
     "asset_id", "asset_name", "asset_type", "cryptographic_algorithm",
-    "cryptographic_purpose", "owner", "environment", "business_criticality",
-    "internet_exposed", "migration_status",
+    "cryptographic_purpose", "environment", "data_sensitivity",
+    "business_criticality", "internet_exposed", "migration_status",
 ]
-display = filtered[[column for column in display_cols if column in filtered.columns]].rename(
-    columns={
-        "asset_id": "Asset ID",
-        "asset_name": "Asset",
-        "asset_type": "Type",
-        "cryptographic_algorithm": "Algorithm",
-        "cryptographic_purpose": "Purpose",
-        "business_criticality": "Criticality",
-        "internet_exposed": "Internet",
-        "migration_status": "Migration",
-    }
-)
-st.dataframe(display, use_container_width=True, hide_index=True, height=390)
+display = filtered[[c for c in display_cols if c in filtered.columns]]
 
-section_title("Manage records", "Editing an asset automatically recalculates its finding and risk score.")
-tab_add, tab_edit, tab_delete = st.tabs(["Add asset", "Edit asset", "Delete asset"])
+st.dataframe(
+    display,
+    use_container_width=True,
+    height=400,
+    column_config={
+        "asset_id": st.column_config.TextColumn("ID", width="small"),
+        "asset_name": st.column_config.TextColumn("Name", width="medium"),
+        "internet_exposed": st.column_config.CheckboxColumn("Internet", width="small"),
+    },
+)
+
+# ── Export ────────────────────────────────────────────────────────────
+export_col1, export_col2 = st.columns([1, 5])
+with export_col1:
+    csv_data = filtered.to_csv(index=False)
+    st.download_button(
+        "📥 Export CSV", csv_data,
+        file_name="qshield_inventory.csv",
+        mime="text/csv",
+    )
+
+st.markdown("---")
+
+# ── Add / Edit / Delete ──────────────────────────────────────────────
+tab_add, tab_edit, tab_delete = st.tabs(["➕ Add Asset", "✏️ Edit Asset", "🗑️ Delete Asset"])
 
 with tab_add:
+    st.markdown("#### Add New Asset")
     with st.form("add_asset_form"):
-        st.markdown("**1 · Identify the asset**")
-        id_col, name_col, type_col = st.columns(3)
-        with id_col:
+        ac1, ac2, ac3 = st.columns(3)
+        with ac1:
             new_id = st.text_input("Asset ID*", placeholder="ASSET-016")
-        with name_col:
-            new_name = st.text_input("Asset name*", placeholder="Payments API")
-        with type_col:
-            new_type = st.selectbox("Asset type*", [entry.value for entry in AssetType])
-
-        st.markdown("**2 · Describe the cryptography**")
-        crypto_col1, crypto_col2, crypto_col3 = st.columns(3)
-        with crypto_col1:
+            new_name = st.text_input("Asset Name*", placeholder="My Service")
+            new_type = st.selectbox("Asset Type*", [e.value for e in AssetType])
+            new_domain = st.text_input("Business Domain", placeholder="Payments")
+            new_env = st.selectbox("Environment", [e.value for e in Environment])
+            new_owner = st.text_input("Owner", placeholder="Team Name")
+        with ac2:
             new_algo = st.text_input("Algorithm*", placeholder="RSA-2048")
-            new_purpose = st.selectbox("Purpose", [entry.value for entry in CryptoPurpose])
-        with crypto_col2:
+            new_purpose = st.selectbox("Purpose", [e.value for e in CryptoPurpose])
             new_protocol = st.text_input("Protocol", placeholder="TLS 1.3")
-            new_cert = st.text_input("Certificate expiry", placeholder="2027-12-31")
-        with crypto_col3:
-            new_env = st.selectbox("Environment", [entry.value for entry in Environment])
-            new_owner = st.text_input("Owner", placeholder="Payments Platform")
-
-        st.markdown("**3 · Capture business impact and migration context**")
-        impact_col1, impact_col2, impact_col3 = st.columns(3)
-        with impact_col1:
-            new_sens = st.selectbox("Data sensitivity", [entry.value for entry in DataSensitivity])
+            new_cert = st.text_input("Certificate Expiry", placeholder="2027-12-31")
+            new_sens = st.selectbox("Data Sensitivity", [e.value for e in DataSensitivity])
             new_ret = st.number_input("Retention (years)", 0, 100, 5)
-        with impact_col2:
-            new_crit = st.selectbox("Business criticality", [entry.value for entry in BusinessCriticality])
+        with ac3:
+            new_crit = st.selectbox("Business Criticality", [e.value for e in BusinessCriticality])
+            new_exposed = st.checkbox("Internet Exposed")
             new_deps = st.number_input("Dependencies", 0, 100, 0)
-        with impact_col3:
-            new_exposed = st.checkbox("Internet exposed")
-            new_status = st.selectbox("Migration status", [entry.value for entry in MigrationStatus])
-        new_domain = st.text_input("Business domain", placeholder="Payments")
-        new_notes = st.text_area("Notes", height=80)
+            new_status = st.selectbox("Migration Status", [e.value for e in MigrationStatus])
+            new_notes = st.text_area("Notes", height=80)
 
-        if st.form_submit_button("Add and assess asset", type="primary"):
+        if st.form_submit_button("Add Asset", type="primary"):
             data = {
-                "asset_id": sanitize_text(new_id), "asset_name": sanitize_text(new_name),
-                "asset_type": new_type, "business_domain": sanitize_text(new_domain),
-                "environment": new_env, "owner": sanitize_text(new_owner),
-                "cryptographic_algorithm": sanitize_text(new_algo), "cryptographic_purpose": new_purpose,
-                "protocol": sanitize_text(new_protocol), "certificate_expiry": sanitize_text(new_cert),
-                "data_sensitivity": new_sens, "data_retention_years": new_ret,
-                "business_criticality": new_crit, "internet_exposed": new_exposed,
-                "dependency_count": new_deps, "migration_status": new_status,
+                "asset_id": sanitize_text(new_id),
+                "asset_name": sanitize_text(new_name),
+                "asset_type": new_type,
+                "business_domain": sanitize_text(new_domain),
+                "environment": new_env,
+                "owner": sanitize_text(new_owner),
+                "cryptographic_algorithm": sanitize_text(new_algo),
+                "cryptographic_purpose": new_purpose,
+                "protocol": sanitize_text(new_protocol),
+                "certificate_expiry": sanitize_text(new_cert),
+                "data_sensitivity": new_sens,
+                "data_retention_years": new_ret,
+                "business_criticality": new_crit,
+                "internet_exposed": new_exposed,
+                "dependency_count": new_deps,
+                "migration_status": new_status,
                 "notes": sanitize_text(new_notes),
             }
-            valid, issues = validate_single_asset(data)
-            if not valid:
-                for issue in issues:
-                    st.error(issue)
+            ok, issues = validate_single_asset(data)
+            if not ok:
+                for iss in issues:
+                    st.error(iss)
             else:
-                db.upsert_asset(CryptographicAsset.from_dict(data))
-                assess_assets([data])
+                asset = CryptographicAsset.from_dict(data)
+                db.upsert_asset(asset)
+                finding = analyze_asset(data)
+                score = compute_risk_score(data, finding)
+                db.save_assessment(data["asset_id"], finding.to_dict(), score.to_dict())
                 db.log_activity("Added asset", f"{data['asset_id']}: {data['asset_name']}")
-                st.success(f"Added and assessed {data['asset_id']}")
+                st.success(f"✅ Added asset {data['asset_id']}")
                 st.rerun()
 
 with tab_edit:
+    st.markdown("#### Edit Existing Asset")
     asset_ids = filtered["asset_id"].tolist()
     if not asset_ids:
-        st.info("No filtered assets are available to edit.")
+        st.info("No assets to edit.")
     else:
-        edit_id = st.selectbox("Select asset", asset_ids, format_func=lambda asset_id: f"{asset_id} — {filtered[filtered['asset_id'] == asset_id]['asset_name'].iloc[0]}")
+        edit_id = st.selectbox("Select Asset", asset_ids,
+                               format_func=lambda x: f"{x} — {filtered[filtered['asset_id']==x]['asset_name'].iloc[0]}" if len(filtered[filtered['asset_id']==x]) > 0 else x)
         existing = db.get_asset(edit_id)
         if existing:
             with st.form("edit_asset_form"):
-                edit_col1, edit_col2 = st.columns(2)
-                with edit_col1:
+                ec1, ec2 = st.columns(2)
+                with ec1:
                     ed_name = st.text_input("Name", value=existing.get("asset_name", ""))
                     ed_algo = st.text_input("Algorithm", value=existing.get("cryptographic_algorithm", ""))
-                    ed_sens = st.selectbox("Data sensitivity", [entry.value for entry in DataSensitivity], index=[entry.value for entry in DataSensitivity].index(existing.get("data_sensitivity", "Internal")))
-                    ed_crit = st.selectbox("Business criticality", [entry.value for entry in BusinessCriticality], index=[entry.value for entry in BusinessCriticality].index(existing.get("business_criticality", "Medium")))
-                with edit_col2:
-                    statuses = [entry.value for entry in MigrationStatus]
+                    ed_sens = st.selectbox("Data Sensitivity",
+                                          [e.value for e in DataSensitivity],
+                                          index=[e.value for e in DataSensitivity].index(existing.get("data_sensitivity", "Internal")) if existing.get("data_sensitivity") in [e.value for e in DataSensitivity] else 1)
+                    ed_crit = st.selectbox("Business Criticality",
+                                          [e.value for e in BusinessCriticality],
+                                          index=[e.value for e in BusinessCriticality].index(existing.get("business_criticality", "Medium")) if existing.get("business_criticality") in [e.value for e in BusinessCriticality] else 1)
+                with ec2:
+                    all_statuses = [e.value for e in MigrationStatus]
                     current_status = existing.get("migration_status", "Not Started")
-                    ed_status = st.selectbox("Migration status", statuses, index=statuses.index(current_status) if current_status in statuses else 0)
+                    ed_status = st.selectbox("Migration Status",
+                                            all_statuses,
+                                            index=all_statuses.index(current_status) if current_status in all_statuses else 0)
                     ed_notes = st.text_area("Notes", value=existing.get("notes", ""))
-                    ed_exposed = st.checkbox("Internet exposed", value=bool(existing.get("internet_exposed")))
+                    ed_exposed = st.checkbox("Internet Exposed", value=bool(existing.get("internet_exposed")))
                     ed_deps = st.number_input("Dependencies", 0, 100, int(existing.get("dependency_count", 0)))
-                if st.form_submit_button("Save and reassess", type="primary"):
-                    existing.update({
-                        "asset_name": sanitize_text(ed_name), "cryptographic_algorithm": sanitize_text(ed_algo),
-                        "data_sensitivity": ed_sens, "business_criticality": ed_crit, "migration_status": ed_status,
-                        "notes": sanitize_text(ed_notes), "internet_exposed": ed_exposed, "dependency_count": ed_deps,
-                    })
-                    db.upsert_asset(CryptographicAsset.from_dict(existing))
-                    assess_assets([existing])
-                    db.log_activity("Updated asset", edit_id)
-                    st.success(f"Updated and reassessed {edit_id}")
+
+                if st.form_submit_button("Update Asset", type="primary"):
+                    existing["asset_name"] = sanitize_text(ed_name)
+                    existing["cryptographic_algorithm"] = sanitize_text(ed_algo)
+                    existing["data_sensitivity"] = ed_sens
+                    existing["business_criticality"] = ed_crit
+                    existing["migration_status"] = ed_status
+                    existing["notes"] = sanitize_text(ed_notes)
+                    existing["internet_exposed"] = ed_exposed
+                    existing["dependency_count"] = ed_deps
+                    asset = CryptographicAsset.from_dict(existing)
+                    db.upsert_asset(asset)
+                    finding = analyze_asset(existing)
+                    score = compute_risk_score(existing, finding)
+                    db.save_assessment(edit_id, finding.to_dict(), score.to_dict())
+                    db.log_activity("Updated asset", f"{edit_id}")
+                    st.success(f"✅ Updated {edit_id}")
                     st.rerun()
 
 with tab_delete:
-    delete_ids = filtered["asset_id"].tolist()
-    if not delete_ids:
-        st.info("No filtered assets are available to delete.")
+    st.markdown("#### Delete Asset")
+    del_ids = filtered["asset_id"].tolist()
+    if not del_ids:
+        st.info("No assets to delete.")
     else:
-        delete_id = st.selectbox("Select asset to delete", delete_ids, key="delete_asset_select")
-        st.warning(f"Deleting **{delete_id}** also deletes its assessment result.")
-        if st.button("Delete selected asset", type="primary"):
-            db.delete_asset(delete_id)
-            db.log_activity("Deleted asset", delete_id)
-            st.success(f"Deleted {delete_id}")
+        del_id = st.selectbox("Select asset to delete", del_ids, key="del_select",
+                              format_func=lambda x: f"{x} — {filtered[filtered['asset_id']==x]['asset_name'].iloc[0]}" if len(filtered[filtered['asset_id']==x]) > 0 else x)
+        st.warning(f"⚠️ This will permanently delete **{del_id}** and its assessment.")
+        if st.button("🗑️ Delete", type="primary"):
+            db.delete_asset(del_id)
+            db.log_activity("Deleted asset", del_id)
+            st.success(f"Deleted {del_id}")
             st.rerun()
-
-with st.expander("Data management", expanded=False):
-    st.caption(f"{db.asset_count()} assets are stored locally.")
-    if st.button("Clear all inventory", type="secondary"):
-        st.session_state["confirm_clear_inventory"] = True
-    if st.session_state.get("confirm_clear_inventory"):
-        st.warning("This permanently deletes every asset and assessment in the local database.")
-        confirm_col, cancel_col = st.columns(2)
-        with confirm_col:
-            if st.button("Confirm clear inventory", type="primary"):
-                deleted = db.delete_all_assets()
-                db.log_activity("Cleared inventory", f"Deleted {deleted} assets")
-                st.session_state["confirm_clear_inventory"] = False
-                st.success(f"Cleared {deleted} assets")
-                st.rerun()
-        with cancel_col:
-            if st.button("Cancel clear"):
-                st.session_state["confirm_clear_inventory"] = False
-                st.rerun()
