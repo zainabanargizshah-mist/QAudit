@@ -12,6 +12,7 @@ import json
 from datetime import datetime, timezone
 from streamlit.errors import StreamlitAPIException
 
+from qshield.auth import require_login, render_auth_sidebar
 from qshield.database import Database
 from qshield.detection import analyze_asset
 from qshield.risk_engine import compute_risk_score
@@ -27,6 +28,8 @@ st.set_page_config(
     page_icon="📄",
     layout="wide",
 )
+
+require_login()
 
 st.markdown("""
 <style>

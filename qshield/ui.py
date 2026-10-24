@@ -1153,6 +1153,11 @@ def render_sidebar(active_page: str = "Command Center") -> None:
             """,
             unsafe_allow_html=True,
         )
+        try:
+            from qshield.auth import render_auth_sidebar
+            render_auth_sidebar()
+        except ImportError:
+            pass
         st.markdown('<div class="qs-nav-label">Workspace</div>', unsafe_allow_html=True)
         st.caption("Local prototype · decision-support estimates")
         st.markdown('<div class="qs-nav-label">Navigate</div>', unsafe_allow_html=True)

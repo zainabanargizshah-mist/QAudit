@@ -10,6 +10,7 @@ import io
 import json
 from streamlit.errors import StreamlitAPIException
 
+from qshield.auth import require_login, render_auth_sidebar
 from qshield.database import Database
 from qshield.inventory import (
     load_demo_assets, import_assets_to_db, get_assets_dataframe,
@@ -34,6 +35,8 @@ st.set_page_config(
     page_icon="📋",
     layout="wide",
 )
+
+require_login()
 
 # ── Shared CSS (minimal repeat for page) ─────────────────────────────
 st.markdown("""

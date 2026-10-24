@@ -10,6 +10,7 @@ import os
 import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
+from qshield.auth import require_login, render_auth_sidebar
 from qshield.models import DEFAULT_SCORING_CONFIG, NIST_PQC_STANDARDS
 from qshield.ai_assistant import get_standards_reference
 from qshield.standards import standards_reference_version
@@ -21,6 +22,8 @@ st.set_page_config(
     page_icon="📚",
     layout="wide",
 )
+
+require_login()
 
 st.markdown("""
 <style>

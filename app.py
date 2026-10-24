@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 from qshield import __app_name__, __app_subtitle__, __version__
+from qshield.auth import require_login, render_auth_sidebar
 from qshield.database import Database
 from qshield.inventory import load_demo_assets, import_assets_to_db, get_assets_dataframe
 from qshield.assessment import assess_all
@@ -28,6 +29,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+require_login()
 inject_styles()
 
 
@@ -51,6 +53,7 @@ def _run_assessment(database: Database):
 
 render_sidebar("Command Center")
 with st.sidebar:
+
 
     st.markdown("---")
 
