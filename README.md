@@ -134,6 +134,11 @@ cp .env.example .env
 # Edit .env and set GEMINI_API_KEY to your Google AI Studio key
 ```
 
+The file must be named exactly `.env` in the project root. The app does not
+load secrets placed only in `.env.example`. In the Migration Planner, the AI
+status message reports whether a key was detected from `.env`, the process
+environment, or Streamlit secrets without displaying the key.
+
 ### Streamlit Community Cloud
 
 Add secrets in the Streamlit dashboard:

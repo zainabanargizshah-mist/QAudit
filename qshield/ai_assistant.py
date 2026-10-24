@@ -12,12 +12,16 @@ Security controls:
 - Timeouts and error handling for all API calls.
 """
 
+import json
 import os
+from pathlib import Path
 from typing import Dict
 
 from dotenv import load_dotenv
 
-load_dotenv()
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ENV_FILE = PROJECT_ROOT / ".env"
+load_dotenv(dotenv_path=ENV_FILE)
 
 from qshield.models import DEFAULT_SCORING_CONFIG
 from qshield.standards import load_standards_reference, standards_reference_version
@@ -49,6 +53,8 @@ class AIAssistant:
     """
 
     def __init__(self):
+        self.initialization_error = None
+        self.credential_source = None
         self.provider, self.api_key = self._get_credentials()
         self.model = (
             os.environ.get("QSHIELD_GEMINI_MODEL", "gemini-3.8-flash")
@@ -70,6 +76,7 @@ class AIAssistant:
             for name in names:
                 key = os.environ.get(name, "")
                 if key and not key.startswith("your_"):
+                    self.credential_source = f"environment:{name}"
                     return provider, key
         try:
             import streamlit as st
@@ -77,6 +84,7 @@ class AIAssistant:
                 for name in names:
                     key = st.secrets.get(name, "")
                     if key and not key.startswith("your_"):
+                        self.credential_source = f"streamlit-secrets:{name}"
                         return provider, key
         except Exception:
             pass
@@ -97,9 +105,35 @@ class AIAssistant:
                     self._client = OpenAI(api_key=self.api_key, timeout=30.0)
             except ImportError:
                 self.available = False
-            except Exception:
+                self.initialization_error = "The installed AI provider package is missing."
+            except Exception as exc:
                 self.available = False
+                self.initialization_error = f"The AI client could not be initialized ({type(exc).__name__})."
         return self._client
+
+    def configuration_message(self) -> str:
+        """Return a safe diagnostic without exposing the API key."""
+        if self.available:
+            return f"{self.provider} key detected via {self.credential_source or 'runtime configuration'}."
+        if not ENV_FILE.exists():
+            return (
+                f"No .env file was found at {ENV_FILE}. Copy .env.example to .env "
+                "and set GEMINI_API_KEY there, or configure Streamlit secrets."
+            )
+        return (
+            f"A .env file was found at {ENV_FILE}, but no usable GEMINI_API_KEY or "
+            "GOOGLE_API_KEY was detected. Check the variable name and remove the placeholder value."
+        )
+
+    @staticmethod
+    def _provider_error_message(error: Exception) -> str:
+        """Return useful provider diagnostics without exposing credentials."""
+        status = getattr(error, "status_code", None) or getattr(error, "code", None)
+        detail = " ".join(str(error).split())
+        if len(detail) > 240:
+            detail = detail[:237] + "..."
+        prefix = f"HTTP {status}: " if status else ""
+        return f"{prefix}{detail or type(error).__name__}"
 
     def _build_system_prompt(self) -> str:
         refs = "\n".join([
@@ -242,13 +276,113 @@ Scores are decision-support estimates (0-100), NOT certified ratings."""
                     "and the configured model name."
                 )
             else:
-                self.last_error = f"The AI request failed ({error_type})."
+                self.last_error = f"The AI request failed ({self._provider_error_message(e)})."
             self.last_response_mode = "rule-based guidance"
             return (
                 f"AI assistant could not complete the request ({error_type}); "
                 f"showing rule-based guidance instead.\n\n"
                 + self._fallback_response(prompt)
             )
+
+    def generate_migration_plan(self, payload: dict, allow_external: bool = False) -> dict:
+        """Generate a structured full migration plan from a consented payload.
+
+        Deterministic risk, standards mappings, and progress are calculated
+        before this method is called and are restored after the model response,
+        so the model can improve explanation without changing the source of
+        truth used by the application.
+        """
+        from qshield.migration_plan import deterministic_plan, merge_ai_plan, parse_ai_plan
+
+        analysis = payload.get("deterministic_analysis", {})
+        fallback = deterministic_plan(analysis)
+        self.last_error = None
+        self.last_notice = None
+        self.last_response_from_ai = False
+        self.last_response_mode = "deterministic baseline"
+        self.response_metadata = {
+            "standards_reference_version": standards_reference_version(),
+            "provider": self.provider_name,
+            "model": self.model,
+        }
+
+        if not allow_external:
+            self.last_error = "External AI use was not approved for this migration plan."
+            return fallback
+        if not self.available:
+            self.last_error = self.configuration_message()
+            return fallback
+
+        client = self._get_client()
+        if not client:
+            self.last_error = self.initialization_error or "The AI client could not be initialized."
+            return fallback
+
+        system_prompt = f"""You are Q-Shield AI, a cybersecurity migration-planning assistant.
+Return ONLY a valid JSON object. Do not wrap it in Markdown.
+
+Create a complete, practical migration plan from preparation through verified
+completion. Use only facts in the supplied inventory and deterministic analysis.
+Do not invent owners, deadlines, products, compliance status, or technical
+capabilities. Keep the deterministic risk summary and overall_progress unchanged.
+Use NIST FIPS 203 for key establishment, FIPS 204 or FIPS 205 for signatures,
+and OWASP A02 for cryptographic-failure controls. Flag missing evidence as an
+open question instead of guessing.
+
+Required JSON keys:
+title, executive_summary, standards_used, phases, asset_actions,
+open_questions, assumptions.
+
+Each phase should include: phase, name, objective, entry_criteria,
+activities, exit_criteria, evidence_required, rollback_or_contingency.
+Each asset action should include: asset_id, asset_name, priority, current_state,
+target_state, rationale, actions, dependencies, validation, evidence_required,
+owner, and estimated_sequence. Use "Unassigned" when no owner is recorded.
+
+Standards reference version: {standards_reference_version()}
+"""
+        user_content = json.dumps(payload, ensure_ascii=True, default=str)
+
+        try:
+            if self.provider == "Gemini":
+                from google.genai import types
+
+                config = types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    max_output_tokens=5000,
+                    temperature=0.2,
+                    response_mime_type="application/json",
+                )
+                response = client.models.generate_content(
+                    model=self.model,
+                    contents=user_content[:60000],
+                    config=config,
+                )
+                result = response.text
+            else:
+                response = client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_content[:60000]},
+                    ],
+                    max_tokens=5000,
+                    temperature=0.2,
+                    response_format={"type": "json_object"},
+                )
+                result = response.choices[0].message.content
+
+            raw = parse_ai_plan(result or "")
+            self.last_response_from_ai = True
+            self.last_response_mode = f"{self.provider}-generated advisory"
+            return merge_ai_plan(raw, analysis)
+        except Exception as e:
+            self.last_error = (
+                "The AI migration-plan request failed "
+                f"({self._provider_error_message(e)})."
+            )
+            self.last_response_mode = "deterministic baseline"
+            return fallback
 
     def _fallback_response(self, prompt: str) -> str:
         """Provide rule-based fallback when AI is unavailable."""

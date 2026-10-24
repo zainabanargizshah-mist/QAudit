@@ -23,6 +23,9 @@ env/
 *~
 
 # Secrets
+.env
+.env.*
+!.env.example
 secrets.toml
 .streamlit/secrets.toml
 

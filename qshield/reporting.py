@@ -5,6 +5,8 @@ Generates professional PDF and CSV reports from current assessment data.
 Reports are generated from live data, not static templates.
 """
 
+from __future__ import annotations
+
 import io
 import csv
 from datetime import datetime, timezone
@@ -593,6 +595,225 @@ def generate_pdf_report(
     pdf.set_text_color(*muted)
     pdf.set_font("Helvetica", "", 7)
     pdf.multi_cell(0, 4, "Scope note: assessment coverage may be lower than inventory size. Unassessed inventory items are listed in the asset details and are not counted as scored assets. Detection is rule-based, analyzes declared inventory data, and does not inspect live traffic. This report does not certify compliance.")
+
+    return bytes(pdf.output())
+
+
+def generate_migration_plan_pdf(plan: dict, generated_at: str | None = None) -> bytes:
+    """Generate a clean, text-first PDF for the full migration plan."""
+    from fpdf import FPDF
+
+    navy = (18, 33, 59)
+    ink = (35, 48, 67)
+    muted = (100, 116, 139)
+    line = (220, 228, 237)
+    pale = (245, 248, 252)
+    teal = (0, 139, 145)
+    warning = (122, 86, 25)
+
+    class MigrationPlanPDF(FPDF):
+        def header(self):
+            if self.page_no() == 1:
+                return
+            self.set_fill_color(*navy)
+            self.rect(0, 0, 210, 13, style="F")
+            self.set_xy(14, 3.4)
+            self.set_text_color(255, 255, 255)
+            self.set_font("Helvetica", "B", 8)
+            self.cell(85, 5, "Q-SHIELD  /  MIGRATION PLANNER")
+            self.set_font("Helvetica", "", 8)
+            self.cell(0, 5, "AI-ASSISTED ADVISORY PLAN", align="R")
+            self.set_y(19)
+
+        def footer(self):
+            if self.page_no() == 1:
+                return
+            self.set_y(-13)
+            self.set_draw_color(*line)
+            self.line(14, self.get_y(), 196, self.get_y())
+            self.set_y(-10)
+            self.set_text_color(*muted)
+            self.set_font("Helvetica", "", 7)
+            self.cell(125, 5, "Advisory decision-support plan - verify before implementation")
+            self.cell(0, 5, f"{self.page_no()} / {{nb}}", align="R")
+
+    pdf = MigrationPlanPDF(format="A4")
+    pdf.alias_nb_pages()
+    pdf.set_margins(14, 20, 14)
+    pdf.set_auto_page_break(auto=True, margin=17)
+    pdf.set_title(_safe_str(plan.get("title", "Q-Shield Migration Plan")))
+    pdf.set_author("Q-Shield")
+
+    def section(title: str, subtitle: str | None = None):
+        pdf.set_text_color(*navy)
+        pdf.set_font("Helvetica", "B", 16)
+        pdf.cell(0, 9, _safe_str(title), new_x="LMARGIN", new_y="NEXT")
+        if subtitle:
+            pdf.set_text_color(*muted)
+            pdf.set_font("Helvetica", "", 8)
+            pdf.multi_cell(0, 4, _safe_str(subtitle))
+        pdf.ln(2)
+
+    def bullet_list(items, numbered=False):
+        for index, item in enumerate(items or [], start=1):
+            prefix = f"{index}. " if numbered else "- "
+            pdf.set_x(18)
+            pdf.set_text_color(*ink)
+            pdf.set_font("Helvetica", "", 8)
+            pdf.multi_cell(174, 4.5, _safe_str(prefix + str(item)))
+            pdf.ln(0.5)
+
+    generated_at = generated_at or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    pdf.add_page()
+    pdf.set_fill_color(*navy)
+    pdf.rect(0, 0, 210, 96, style="F")
+    pdf.set_fill_color(*teal)
+    pdf.rect(14, 17, 19, 1.6, style="F")
+    pdf.set_xy(14, 25)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Helvetica", "B", 22)
+    pdf.multi_cell(178, 10, _safe_str(plan.get("title", "Q-Shield Full PQC Migration Plan")))
+    pdf.set_xy(14, 73)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(206, 220, 235)
+    mode = "Gemini-generated advisory" if plan.get("ai_generated") else "Deterministic baseline"
+    pdf.cell(0, 5, _safe_str(f"Generated {generated_at}  |  Mode: {mode}"))
+
+    pdf.set_y(111)
+    pdf.set_fill_color(*pale)
+    pdf.set_draw_color(*line)
+    pdf.rect(14, 111, 182, 31, style="DF")
+    pdf.set_xy(18, 115)
+    pdf.set_text_color(*muted)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.cell(45, 4, "RISK-WEIGHTED PROGRESS")
+    pdf.set_xy(18, 123)
+    pdf.set_text_color(*teal)
+    pdf.set_font("Helvetica", "B", 22)
+    pdf.cell(42, 9, f"{int(plan.get('overall_progress', 0) or 0)}%")
+    pdf.set_xy(70, 115)
+    pdf.set_text_color(*muted)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.cell(42, 4, "AI STATUS")
+    pdf.set_xy(70, 123)
+    pdf.set_text_color(*ink)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.cell(48, 8, "AI advisory" if plan.get("ai_generated") else "Baseline only")
+    pdf.set_xy(127, 115)
+    pdf.set_text_color(*muted)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.cell(50, 4, "STANDARDS REFERENCE")
+    pdf.set_xy(127, 123)
+    pdf.set_text_color(*ink)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.multi_cell(62, 4, _safe_str(plan.get("standards_reference_version", "Unknown")))
+
+    pdf.set_y(155)
+    section("Executive summary")
+    pdf.set_text_color(*ink)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.multi_cell(182, 5, _safe_str(plan.get("executive_summary", "No summary generated.")))
+
+    pdf.ln(4)
+    section("Risk summary")
+    risk_summary = plan.get("risk_summary", {}) or {}
+    for level in ("Critical", "High", "Medium", "Low", "Unknown"):
+        pdf.set_x(18)
+        pdf.set_text_color(*ink)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(45, 5, level)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.cell(20, 5, str(risk_summary.get(level, 0)))
+
+    pdf.add_page()
+    section("Standards and methodology")
+    bullet_list(plan.get("standards_used", []))
+    pdf.ln(3)
+    pdf.set_text_color(*muted)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.multi_cell(182, 4.5, "Progress is risk-weighted across assets. A Completed status without verified evidence is capped below 100%; 100% requires verified completion evidence.")
+
+    pdf.ln(5)
+    section("Migration phases")
+    for phase in plan.get("phases", []) or []:
+        if not isinstance(phase, dict):
+            continue
+        phase_name = f"Phase {phase.get('phase', '')}: {phase.get('name', '')}"
+        pdf.set_text_color(*navy)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 6, _safe_str(phase_name), new_x="LMARGIN", new_y="NEXT")
+        objective = phase.get("objective") or phase.get("description", "")
+        if objective:
+            pdf.set_text_color(*ink)
+            pdf.set_font("Helvetica", "", 8)
+            pdf.multi_cell(182, 4.5, _safe_str(f"Objective: {objective}"))
+        activities = phase.get("activities", [])
+        if activities:
+            bullet_list(activities)
+        for label in ("entry_criteria", "exit_criteria", "evidence_required", "rollback_or_contingency"):
+            values = phase.get(label, [])
+            if values:
+                pdf.set_x(18)
+                pdf.set_text_color(*muted)
+                pdf.set_font("Helvetica", "B", 7)
+                pdf.cell(38, 4, label.replace("_", " ").upper())
+                pdf.set_text_color(*ink)
+                pdf.set_font("Helvetica", "", 7)
+                pdf.multi_cell(144, 4, _safe_str("; ".join(values) if isinstance(values, list) else values))
+        pdf.ln(3)
+
+    pdf.add_page()
+    section("Priority asset actions", "The deterministic risk and progress values are preserved in this section.")
+    for index, action in enumerate(plan.get("asset_actions", []) or [], start=1):
+        if not isinstance(action, dict):
+            continue
+        name = action.get("asset_name") or action.get("asset_id") or f"Asset {index}"
+        pdf.set_fill_color(*pale)
+        pdf.rect(14, pdf.get_y(), 182, 17, style="F")
+        pdf.set_xy(18, pdf.get_y() + 3)
+        pdf.set_text_color(*navy)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.cell(95, 5, _safe_str(str(name)[:60]))
+        pdf.set_text_color(*teal)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(40, 5, _safe_str(f"{action.get('risk_level', action.get('priority', 'Unknown'))}"))
+        pdf.cell(35, 5, _safe_str(f"{action.get('progress_percent', 0)}%"), align="R")
+        pdf.set_y(pdf.get_y() + 19)
+        for label in ("current_state", "target_state", "rationale", "actions", "dependencies", "validation", "evidence_required", "owner", "estimated_sequence", "finding"):
+            value = action.get(label)
+            if not value:
+                continue
+            if isinstance(value, list):
+                value = "; ".join(str(item) for item in value)
+            pdf.set_x(18)
+            pdf.set_text_color(*muted)
+            pdf.set_font("Helvetica", "B", 7)
+            pdf.cell(34, 4, label.replace("_", " ").upper())
+            pdf.set_text_color(*ink)
+            pdf.set_font("Helvetica", "", 7)
+            pdf.multi_cell(148, 4, _safe_str(value))
+        pdf.ln(3)
+
+    pdf.add_page()
+    section("Open questions and assumptions")
+    pdf.set_text_color(*navy)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, "Open questions", new_x="LMARGIN", new_y="NEXT")
+    bullet_list(plan.get("open_questions", []))
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, "Assumptions", new_x="LMARGIN", new_y="NEXT")
+    bullet_list(plan.get("assumptions", []))
+    pdf.ln(6)
+    pdf.set_fill_color(255, 248, 232)
+    pdf.rect(14, pdf.get_y(), 182, 24, style="F")
+    pdf.set_xy(18, pdf.get_y() + 4)
+    pdf.set_text_color(*warning)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.cell(0, 4, "Human approval required")
+    pdf.set_xy(18, pdf.get_y() + 7)
+    pdf.set_font("Helvetica", "", 7)
+    pdf.multi_cell(174, 4, "This document is an advisory migration plan. Confirm algorithm usage, dependencies, testing results, rollback procedures, and current standards with qualified security and system owners before implementation.")
 
     return bytes(pdf.output())
 
