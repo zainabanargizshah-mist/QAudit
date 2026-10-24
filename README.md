@@ -63,6 +63,17 @@ streamlit run app.py
 
 The app opens at `http://localhost:8501`. Click **＋ Load demo data** to populate a local prototype workspace with synthetic financial-system records. These are declared demo records, not discovered assets.
 
+### Demo Login
+
+The local prototype includes a built-in login for judge presentations:
+
+```text
+Username: judge
+Password: qshield-demo
+```
+
+This is a presentation-only session gate, not production authentication. It has no user database, roles, tenant isolation, password reset, or enterprise identity integration. The defaults can be overridden locally with `QSHIELD_DEMO_USERNAME` and `QSHIELD_DEMO_PASSWORD`. For a shared or production deployment, replace it with an identity provider and disable the built-in demo credentials.
+
 ### Run Tests
 
 ```bash

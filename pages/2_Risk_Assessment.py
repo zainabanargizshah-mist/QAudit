@@ -11,6 +11,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from streamlit.errors import StreamlitAPIException
 
+from qshield.auth import require_login, render_auth_sidebar
 from qshield.database import Database
 from qshield.assessment import assess_asset
 from qshield.models import DEFAULT_SCORING_CONFIG
@@ -21,6 +22,8 @@ st.set_page_config(
     page_icon="⚡",
     layout="wide",
 )
+
+require_login()
 
 st.markdown("""
 <style>
@@ -47,6 +50,7 @@ db = get_database()
 
 with st.sidebar:
     st.markdown("## 🛡️ Q-Shield")
+    render_auth_sidebar()
     st.markdown("---")
     try:
         st.page_link("app.py", label="📊 Overview")

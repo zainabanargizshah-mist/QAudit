@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 from qshield import __app_name__, __app_subtitle__, __version__
+from qshield.auth import require_login, render_auth_sidebar
 from qshield.database import Database
 from qshield.inventory import load_demo_assets, import_assets_to_db, get_assets_dataframe
 from qshield.assessment import assess_all
@@ -26,6 +27,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+require_login()
 
 # ── Custom CSS ───────────────────────────────────────────────────────
 
@@ -162,6 +165,7 @@ def _run_assessment(database: Database):
 with st.sidebar:
     st.markdown("## 🛡️ Q-Shield")
     st.markdown(f"*{__app_subtitle__}*")
+    render_auth_sidebar()
     st.markdown("---")
 
     st.markdown("### Navigation")
