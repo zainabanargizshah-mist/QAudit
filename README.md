@@ -5,6 +5,10 @@ Q-Shield turns a declared cryptographic inventory into a clear, evidence-led vie
 ## 🚀 Live Demo
 
 🔗 **Live Application:** https://q-shield-abcde.streamlit.app/
+### 🔑 Demo Credentials
+
+- **Username:** `judge`
+- **Password:** `qshield-demo`
 
 Explore Q-Shield, an AI-assisted cybersecurity platform designed to help organizations assess cryptographic risks and plan their transition to Post-Quantum Cryptography (PQC).
 
