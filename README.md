@@ -2,6 +2,12 @@
 
 Q-Shield turns a declared cryptographic inventory into a clear, evidence-led view of quantum exposure and migration priorities. It brings asset inventory, transparent detection and risk analysis, PQC migration planning, standards references, and shareable reports into one local-first workspace.
 
+## 🚀 Live Demo
+
+🔗 **Live Application:** https://q-shield-abcde.streamlit.app/
+
+Explore Q-Shield, an AI-assisted cybersecurity platform designed to help organizations assess cryptographic risks and plan their transition to Post-Quantum Cryptography (PQC).
+
 > **Prototype notice:** Q-Shield analyzes information people declare or upload; it does not discover cryptography in live systems, certify compliance, or perform migrations. Treat findings as planning estimates, review them with qualified owners, and use synthetic or sanitized data in demos.
 
 ## 🌟 At a glance
